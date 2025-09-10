@@ -4,6 +4,7 @@ import {
   ICombinations,
   IInfer,
   INetwork,
+  IEvidence,
 } from '../../types'
 import {
   filterCliquePotentialsByNodeCombinations,
@@ -26,7 +27,7 @@ const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nod
   return sum(thens)
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: ICombinations = {}): number => {
+export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
   const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given)
 

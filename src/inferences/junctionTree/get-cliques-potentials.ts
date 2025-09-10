@@ -1,10 +1,10 @@
 import {
   IClique,
   ICliquePotentials,
-  ICombinations,
   IGraph,
   INetwork,
   ISepSet,
+  IEvidence,
 } from '../../types'
 import { isNotNil, normalizeCliquePotentials } from '../../utils'
 
@@ -13,9 +13,9 @@ import { isNil } from 'ramda'
 import propagatePotential from './propagate-potentials'
 
 const getCliquesPotentialsWeekMap = new WeakMap<IClique[], ICliquePotentials>()
-const getGivensWeekMap = new WeakMap<ICombinations, boolean>()
+const getGivensWeekMap = new WeakMap<IEvidence, boolean>()
 
-const getCachedValues = (cliques: IClique[], given: ICombinations) => {
+const getCachedValues = (cliques: IClique[], given: IEvidence) => {
   const cachedByCliques = getCliquesPotentialsWeekMap.get(cliques)
   const cachedByGiven = getGivensWeekMap.get(given)
 
@@ -26,12 +26,12 @@ const getCachedValues = (cliques: IClique[], given: ICombinations) => {
   return null
 }
 
-const setCachedValues = (cliques: IClique[], given: ICombinations, result: ICliquePotentials) => {
+const setCachedValues = (cliques: IClique[], given: IEvidence, result: ICliquePotentials) => {
   getCliquesPotentialsWeekMap.set(cliques, result)
   getGivensWeekMap.set(given, true)
 }
 
-export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations) => {
+export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: IEvidence) => {
   const cached = getCachedValues(cliques, given)
 
   if (isNil(cached)) {

@@ -19,7 +19,7 @@ Currently there are three inferences algorithms:
 
 ## Methods
 
-#### infer(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), nodes?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts)): number
+#### infer(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), nodes?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), given?: [IEvidence](./src/types/IEvidence.ts)): number
 Calculate the probability of a node's state.
 
 This function receives a network, a node's state, and the knowing states and will return the probability of the node's state give.
@@ -53,6 +53,33 @@ infer(network, { 'RAIN': 'T' }).toFixed(4) // 0.2000
 // What is the probability that it is raining (RAIN = T), given the sprinkler is off (SPRINKLER = F)?
 infer(network, { 'RAIN': 'T' }, { 'SPRINKLER': 'F' }).toFixed(4) // 0.2920
 ```
+
+### Soft evidence (virtual evidence)
+BayesJS now supports soft evidence (a probability distribution over a node's states) in addition to traditional hard evidence. Pass an object as `given[nodeId]` with state-to-weight pairs.
+
+- Hard evidence (unchanged):
+  ```js
+  infer(network, { RAIN: 'T' }, { SPRINKLER: 'F' })
+  ```
+- Soft evidence:
+  ```js
+  // Equivalently: { T: 3, F: 7 } will be normalized to { T: 0.3, F: 0.7 }
+  infer(network, { SPRINKLER: 'T' }, { RAIN: { T: 0.3, F: 0.7 } })
+  ```
+- Hard + soft together:
+  ```js
+  infer(network, { GRASS_WET: 'T' }, { SPRINKLER: 'F', RAIN: { T: 0.6, F: 0.4 } })
+  ```
+
+Rules and behavior:
+- Weights are validated to be non-negative finite numbers.
+- Unknown node IDs or state names are rejected.
+- Unspecified states are treated as 0 weight.
+- Weights are normalized to sum to 1 per node (zero-total is rejected).
+- All three engines implement the same semantics:
+  - Enumeration: multiplies each joint assignment by the soft weight and normalizes by P(given).
+  - Variable Elimination: adds a likelihood factor per soft-evidence node.
+  - Junction Tree: multiplies clique potentials by the soft weights before propagation.
 
 #### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
 Calculate all probabilities from a network by receiving the network, knowing states, and options.
@@ -174,7 +201,7 @@ This function receives a network and a node, check if the node can be appended o
 ```js
 import { addNode } from 'bayesjs';
 
-const networkWithRainAndSprinkler = // ...
+let networkWithRainAndSprinkler;
 
 const grassWet = {
   id: 'GRASS_WET',
