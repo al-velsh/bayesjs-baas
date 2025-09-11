@@ -54,32 +54,35 @@ infer(network, { 'RAIN': 'T' }).toFixed(4) // 0.2000
 infer(network, { 'RAIN': 'T' }, { 'SPRINKLER': 'F' }).toFixed(4) // 0.2920
 ```
 
-### Soft evidence (virtual evidence)
-BayesJS now supports soft evidence (a probability distribution over a node's states) in addition to traditional hard evidence. Pass an object as `given[nodeId]` with state-to-weight pairs.
+### Evidence (hard and soft)
+BayesJS accepts both hard evidence (a specific state) and soft evidence (a probability distribution over a node's states). Internally, all evidence is treated as soft evidence; hard evidence is converted to weights 1 for the chosen state and 0 for the others.
 
-- Hard evidence (unchanged):
+- Hard evidence (string):
   ```js
   infer(network, { RAIN: 'T' }, { SPRINKLER: 'F' })
+  // Internally: { SPRINKLER: { F: 1, T: 0 } }
   ```
-- Soft evidence:
+- Soft evidence (state->weight map):
   ```js
-  // Equivalently: { T: 3, F: 7 } will be normalized to { T: 0.3, F: 0.7 }
+  // { T: 3, F: 7 } will be normalized to { T: 0.3, F: 0.7 }
   infer(network, { SPRINKLER: 'T' }, { RAIN: { T: 0.3, F: 0.7 } })
   ```
-- Hard + soft together:
+- Mix hard + soft in the same `given` object:
   ```js
   infer(network, { GRASS_WET: 'T' }, { SPRINKLER: 'F', RAIN: { T: 0.6, F: 0.4 } })
   ```
 
 Rules and behavior:
-- Weights are validated to be non-negative finite numbers.
-- Unknown node IDs or state names are rejected.
-- Unspecified states are treated as 0 weight.
-- Weights are normalized to sum to 1 per node (zero-total is rejected).
-- All three engines implement the same semantics:
-  - Enumeration: multiplies each joint assignment by the soft weight and normalizes by P(given).
-  - Variable Elimination: adds a likelihood factor per soft-evidence node.
-  - Junction Tree: multiplies clique potentials by the soft weights before propagation.
+- Validation: node IDs and state names must exist in the network; weights must be non‑negative finite numbers; zero‑total soft evidence is rejected.
+- Normalization: soft weights are normalized per node to sum to 1; unspecified states are treated as 0 before normalization.
+- Engine semantics (consistent across all three):
+  - Enumeration: weighs joint assignments by soft weights and normalizes by P(given).
+  - Variable Elimination: adds a likelihood factor per evidenced node (soft weights per state).
+  - Junction Tree: multiplies clique potentials by soft weights prior to propagation.
+
+Notes:
+- You can pass both hard strings and soft maps in a single `given`; the library will merge and normalize as needed.
+- Because hard evidence is a special case of soft evidence, there is no separate hard-only path internally.
 
 #### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
 Calculate all probabilities from a network by receiving the network, knowing states, and options.
