@@ -16,7 +16,6 @@ import {
   getNodesFromNetwork,
   hasNodeIdAndParentsInClique,
   hasNodeParents,
-  objectEqualsByIntersectionKeys,
 } from '../../utils'
 import { prepareEvidence } from '../../utils/evidence'
 
@@ -92,23 +91,19 @@ const getPotentialValueForNodeIds = (network: INetwork, combination: ICombinatio
 }
 
 const getPotentialValue = (combination: ICombinations, network: INetwork, given: IEvidence, factors: string[]) => {
-  const { hard: hardEvidence, soft: softEvidence } = prepareEvidence(network, given)
+  const softEvidence = prepareEvidence(network, given)
 
-  if (objectEqualsByIntersectionKeys(hardEvidence, combination)) {
-    let value = getPotentialValueForNodeIds(network, combination, factors)
+  let value = getPotentialValueForNodeIds(network, combination, factors)
 
-    for (const nodeId of Object.keys(softEvidence)) {
-      const evidence = softEvidence[nodeId]
-      const state = combination[nodeId]
-      if (state !== undefined) {
-        value *= evidence[state] || 0
-      }
+  for (const nodeId of Object.keys(softEvidence)) {
+    const evidence = softEvidence[nodeId]
+    const state = combination[nodeId]
+    if (state !== undefined) {
+      value *= evidence[state] || 0
     }
-
-    return value
   }
 
-  return 0
+  return value
 }
 
 const createCliquePotential = (clique: IClique, network: INetwork, given: IEvidence, cliqueFactors: ICliqueFactors) => (combination: ICombinations): ICliquePotentialItem => ({

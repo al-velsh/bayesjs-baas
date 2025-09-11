@@ -22,10 +22,8 @@ const filterCombinations = (combinations: ICombinations[], nodesToFilter: ICombi
   })
 }
 
-const calculateProbabilities = (network: INetwork, combinations: ICombinations[], giving?: IEvidence): number => {
+const calculateProbabilities = (network: INetwork, combinations: ICombinations[], softEvidence: Record<string, Record<string, number>>): number => {
   const rowsProducts: number[] = []
-
-  const { soft: softEvidence } = prepareEvidence(network, giving)
 
   for (let i = 0; i < combinations.length; i++) {
     let rowProduct = 1
@@ -90,14 +88,13 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: 
     combinationsCache.set(network, combinations)
   }
 
-  const { hard: hardEvidence } = prepareEvidence(network, giving)
+  const softEvidence = prepareEvidence(network, giving)
 
-  const queryAndHardEvidence = { ...nodes, ...hardEvidence }
+  const filteredForQuery = filterCombinations(combinations, nodes)
+  const probQueryAndSoft = calculateProbabilities(network, filteredForQuery, softEvidence)
+  const probSoft = calculateProbabilities(network, combinations, softEvidence)
 
-  const probQueryAndGiving = calculateProbabilities(network, filterCombinations(combinations, queryAndHardEvidence), giving)
-  const probGiving = calculateProbabilities(network, filterCombinations(combinations, hardEvidence), giving)
+  if (probSoft === 0) return 0
 
-  if (probGiving === 0) return 0
-
-  return probQueryAndGiving / probGiving
+  return probQueryAndSoft / probSoft
 }

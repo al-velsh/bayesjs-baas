@@ -8,9 +8,8 @@ const network = createNetwork(...allNodes)
 describe('utils/evidence.prepareEvidence', () => {
   it('normalizes soft evidence to sum to 1 and fills missing states with 0', () => {
     const given = { RAIN: { T: 3, F: 7 } }
-    const { hard, soft } = prepareEvidence(network, given)
+    const soft = prepareEvidence(network, given)
 
-    expect(hard).toEqual({})
     expect(Object.keys(soft)).toEqual(['RAIN'])
     // 3/(3+7)=0.3, 7/(3+7)=0.7
     expect(Number(soft.RAIN.T.toFixed(4))).toBe(0.3)
@@ -19,17 +18,17 @@ describe('utils/evidence.prepareEvidence', () => {
 
   it('treats unspecified states as 0 before normalization', () => {
     const given = { RAIN: { T: 2 } as Record<string, number> }
-    const { soft } = prepareEvidence(network, given)
+    const soft = prepareEvidence(network, given)
     // sum=2 => T=1, F=0 after normalization
     expect(soft.RAIN.T).toBe(1)
     expect(soft.RAIN.F).toBe(0)
   })
 
-  it('splits hard evidence unchanged', () => {
+  it('converts hard evidence to 1/0 soft evidence', () => {
     const given = { SPRINKLER: 'T' }
-    const { hard, soft } = prepareEvidence(network, given)
-    expect(hard).toEqual({ SPRINKLER: 'T' })
-    expect(soft).toEqual({})
+    const soft = prepareEvidence(network, given)
+    expect(soft.SPRINKLER.T).toBe(1)
+    expect(soft.SPRINKLER.F).toBe(0)
   })
 
   it('throws for unknown node id', () => {

@@ -10,7 +10,7 @@ import {
 } from '../types'
 import { prepareEvidence } from '../utils/evidence'
 
-function buildFactor (node: INode, hardEvidence?: ICombinations): IFactor {
+function buildFactor (node: INode): IFactor {
   const factor: IFactor = []
 
   if (node.parents.length === 0) {
@@ -35,22 +35,6 @@ function buildFactor (node: INode, hardEvidence?: ICombinations): IFactor {
           states: { ...cpt[i].when, [node.id]: state },
           value: cpt[i].then[state],
         })
-      }
-    }
-  }
-
-  // Apply hard evidence by filtering inconsistent rows
-  if (hardEvidence) {
-    const givingIds = Object.keys(hardEvidence)
-
-    for (let i = factor.length - 1; i >= 0; i--) {
-      for (let j = 0; j < givingIds.length; j++) {
-        const givingId = givingIds[j]
-
-        if (factor[i].states[givingId] && factor[i].states[givingId] !== hardEvidence[givingId]) {
-          factor.splice(i, 1)
-          break
-        }
       }
     }
   }
@@ -140,10 +124,10 @@ function normalizeFactor (factor: IFactor): IFactor {
 export const infer: IInfer = (network: INetwork, nodes: ICombinations = {}, giving?: IEvidence): number => {
   const variables = Object.keys(network)
   const variablesToInfer = Object.keys(nodes)
-  const { hard: hardEvidence, soft: softEvidence } = prepareEvidence(network, giving)
+  const softEvidence = prepareEvidence(network, giving)
 
   // Build CPT-derived factors
-  const factors: IFactor[] = variables.map(nodeId => buildFactor(network[nodeId], hardEvidence))
+  const factors: IFactor[] = variables.map(nodeId => buildFactor(network[nodeId]))
 
   // Add one additional factor per soft-evidence variable (likelihood weighting)
   const softIds = Object.keys(softEvidence)
