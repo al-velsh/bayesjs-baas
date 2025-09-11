@@ -1,11 +1,10 @@
 import * as roundTo from 'round-to'
 
-import { ICombinations, IInferAllOptions, INetwork, INetworkResult, INode, INodeResult } from '../types'
+import { IInferAllOptions, IEvidence, INetwork, INetworkResult, INode, INodeResult } from '../types'
 import { assoc, clone, identity, ifElse, mergeRight, nthArg, pipe, propEq, reduce } from 'ramda'
 import { getNodeStates, getNodesFromNetwork } from './network'
 
 import { infer } from '../inferences/junctionTree'
-import { propIsNotNil } from './fp'
 
 const defaultOptions: IInferAllOptions = {
   force: false,
@@ -14,15 +13,17 @@ const defaultOptions: IInferAllOptions = {
 
 const getOptions = mergeRight(defaultOptions)
 
-const inferNodeState = (network: INetwork, nodeId: string, nodeState: string, given: ICombinations, options: IInferAllOptions) => {
-  if (propIsNotNil(nodeId, given)) {
+const inferNodeState = (network: INetwork, nodeId: string, nodeState: string, given: IEvidence, options: IInferAllOptions) => {
+  // For pure hard-evidence entries on the queried node, keep the fast path
+  if (typeof given[nodeId] === 'string') {
     return propEq(nodeId, nodeState, given) ? 1 : 0
   }
 
-  return roundTo(infer(network, { [nodeId]: nodeState }, given), options.precision!)
+  const precision = options.precision !== undefined ? options.precision : 8
+  return roundTo(infer(network, { [nodeId]: nodeState }, given), precision)
 }
 
-const inferNode = (network: INetwork, node: INode, given: ICombinations, options: IInferAllOptions) =>
+const inferNode = (network: INetwork, node: INode, given: IEvidence, options: IInferAllOptions) =>
   reduce(
     (acc, nodeState) => assoc(
       nodeState,
@@ -39,7 +40,7 @@ const cloneIfForce: <T>(network: T, options: IInferAllOptions) => T = ifElse(
   identity,
 )
 
-export const inferAll = (network: INetwork, given: ICombinations = {}, options: IInferAllOptions = {}): INetworkResult => {
+export const inferAll = (network: INetwork, given: IEvidence = {}, options: IInferAllOptions = {}): INetworkResult => {
   const finalOptions = getOptions(options)
   const networkToInfer = cloneIfForce(network, finalOptions)
   const givenToInfer = cloneIfForce(given, finalOptions)

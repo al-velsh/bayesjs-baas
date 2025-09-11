@@ -84,11 +84,13 @@ Notes:
 - You can pass both hard strings and soft maps in a single `given`; the library will merge and normalize as needed.
 - Because hard evidence is a special case of soft evidence, there is no separate hard-only path internally.
 
-#### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
+#### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [IEvidence](./src/types/IEvidence.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
 Calculate all probabilities from a network by receiving the network, knowing states, and options.
 It returns an object with all results.
 
 This method will execute the junction tree algorithm on each node's state.
+
+Note: `given` can mix hard and soft evidence; hard entries are treated as soft 1/0 internally.
 
 ##### Options
 
