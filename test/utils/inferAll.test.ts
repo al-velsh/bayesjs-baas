@@ -4,8 +4,11 @@ import { allNodes } from '../../models/alarm'
 import { clone } from 'ramda'
 import { createNetwork } from '../../src/utils'
 import { allNodes as hugeNetworkAllNodes } from '../../models/huge-network'
-import { inferAll } from '../../src/utils/inferAll'
+import { inferAll } from '../../src'
+import { allNodes as sprinklerNodes } from '../../models/rain-sprinkler-grasswet'
 
+const alarm = createNetwork(...allNodes)
+const sprinkler = createNetwork(...sprinklerNodes)
 const network = createNetwork(...allNodes)
 const hugeNetwork = createNetwork(...hugeNetworkAllNodes)
 
@@ -118,6 +121,38 @@ describe('InferAll Utils', () => {
             MARY_CALLS: { T: 0.6655, F: 0.3345 },
           })
         })
+      })
+    })
+
+    describe('inferAll with soft evidence', () => {
+      it('maps hard evidence to soft {1,0} equivalently (alarm: BURGLARY)', () => {
+        const hard = inferAll(alarm, { BURGLARY: 'T' })
+        const soft = inferAll(alarm, { BURGLARY: { T: 1, F: 0 } })
+
+        // Compare a few nodes robustly
+        expect(Number(hard.ALARM.T.toFixed(6))).toBe(Number(soft.ALARM.T.toFixed(6)))
+        expect(Number(hard.JOHN_CALLS.T.toFixed(6))).toBe(Number(soft.JOHN_CALLS.T.toFixed(6)))
+        expect(Number(hard.MARY_CALLS.T.toFixed(6))).toBe(Number(soft.MARY_CALLS.T.toFixed(6)))
+      })
+
+      it('mixing soft and hard evidence produces ALARM within hard bounds (alarm: BURGLARY soft, EARTHQUAKE hard)', () => {
+        const hi = inferAll(alarm, { BURGLARY: 'T', EARTHQUAKE: 'T' }).ALARM.T
+        const lo = inferAll(alarm, { BURGLARY: 'F', EARTHQUAKE: 'T' }).ALARM.T
+        const mixed = inferAll(alarm, { BURGLARY: { T: 0.6, F: 0.4 }, EARTHQUAKE: 'T' }).ALARM.T
+
+        const min = Math.min(lo, hi)
+        const max = Math.max(lo, hi)
+
+        expect(mixed >= min && mixed <= max).toBe(true)
+      })
+
+      it('normalizes soft weights equivalently (sprinkler: RAIN {3,7} == {0.3,0.7})', () => {
+        const r1 = inferAll(sprinkler, { RAIN: { T: 3, F: 7 } })
+        const r2 = inferAll(sprinkler, { RAIN: { T: 0.3, F: 0.7 } })
+
+        // Compare only a couple nodes to avoid full-structure sensitivity
+        expect(Number(r1.SPRINKLER.T.toFixed(6))).toBe(Number(r2.SPRINKLER.T.toFixed(6)))
+        expect(Number(r1.GRASS_WET.T.toFixed(6))).toBe(Number(r2.GRASS_WET.T.toFixed(6)))
       })
     })
 
