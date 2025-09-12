@@ -6,10 +6,12 @@ import {
   IInfer,
   INetwork,
   INode,
+  IEvidence,
 } from '../types'
+import { prepareEvidence } from '../utils/evidence'
 
-function buildFactor (node: INode, giving?: ICombinations): IFactor {
-  const factor = []
+function buildFactor (node: INode): IFactor {
+  const factor: IFactor = []
 
   if (node.parents.length === 0) {
     const cpt = node.cpt as ICptWithoutParents
@@ -37,26 +39,11 @@ function buildFactor (node: INode, giving?: ICombinations): IFactor {
     }
   }
 
-  if (giving) {
-    const givingIds = Object.keys(giving)
-
-    for (let i = factor.length - 1; i >= 0; i--) {
-      for (let j = 0; j < givingIds.length; j++) {
-        const givingId = givingIds[j]
-
-        if (factor[i].states[givingId] && factor[i].states[givingId] !== giving[givingId]) {
-          factor.splice(i, 1)
-          break
-        }
-      }
-    }
-  }
-
   return factor
 }
 
 function joinFactors (f1: IFactor, f2: IFactor): IFactor {
-  const newFactor = []
+  const newFactor: IFactor = []
 
   for (let i = 0; i < f1.length; i++) {
     for (let j = 0; j < f2.length; j++) {
@@ -134,21 +121,42 @@ function normalizeFactor (factor: IFactor): IFactor {
     }))
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations = {}, giving?: ICombinations): number => {
+export const infer: IInfer = (network: INetwork, nodes: ICombinations = {}, giving?: IEvidence): number => {
   const variables = Object.keys(network)
   const variablesToInfer = Object.keys(nodes)
-  const variablesGiving = giving ? Object.keys(giving) : []
+  const softEvidence = prepareEvidence(network, giving)
 
+  // Build CPT-derived factors
+  const factors: IFactor[] = variables.map(nodeId => buildFactor(network[nodeId]))
+
+  // Add one additional factor per soft-evidence variable (likelihood weighting)
+  const softIds = Object.keys(softEvidence)
+  for (const nodeId of softIds) {
+    const weights = softEvidence[nodeId]
+    const node = network[nodeId]
+    const factor: IFactor = []
+    for (const state of node.states) {
+      const w = weights[state] || 0
+      factor.push({ states: { [nodeId]: state }, value: w })
+    }
+    factors.push(factor)
+  }
+
+  // Variables to eliminate: all except query variables
   const variablesToEliminate = variables
-    .filter(x => !variablesToInfer.some(y => y === x) && !variablesGiving.some(y => y === x))
-
-  const factors = variables
-    .map(nodeId => buildFactor(network[nodeId], giving))
+    .filter(x => !variablesToInfer.some(y => y === x))
 
   while (variablesToEliminate.length > 0) {
-    const varToEliminate = variablesToEliminate.shift()!
+    const varToEliminate = variablesToEliminate.shift()
+    if (!varToEliminate) {
+      break
+    }
 
     const factorsToJoin = factors.filter(factor => Object.keys(factor[0].states).some(nodeId => nodeId === varToEliminate))
+
+    if (factorsToJoin.length === 0) {
+      continue
+    }
 
     const resultFactor = eliminateVariable(
       factorsToJoin.reduce((f1, f2) => joinFactors(f1, f2)),

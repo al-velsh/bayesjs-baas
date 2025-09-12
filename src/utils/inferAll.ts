@@ -1,11 +1,11 @@
 import * as roundTo from 'round-to'
 
-import { ICombinations, IInferAllOptions, INetwork, INetworkResult, INode, INodeResult } from '../types'
+import { IInferAllOptions, IEvidence, INetwork, INetworkResult, INode, INodeResult } from '../types'
 import { assoc, clone, identity, ifElse, mergeRight, nthArg, pipe, propEq, reduce } from 'ramda'
 import { getNodeStates, getNodesFromNetwork } from './network'
 
 import { infer } from '../inferences/junctionTree'
-import { propIsNotNil } from './fp'
+import { clampNetwork } from './clamp'
 
 const defaultOptions: IInferAllOptions = {
   force: false,
@@ -14,15 +14,25 @@ const defaultOptions: IInferAllOptions = {
 
 const getOptions = mergeRight(defaultOptions)
 
-const inferNodeState = (network: INetwork, nodeId: string, nodeState: string, given: ICombinations, options: IInferAllOptions) => {
-  if (propIsNotNil(nodeId, given)) {
+const inferNodeState = (network: INetwork, nodeId: string, nodeState: string, given: IEvidence, options: IInferAllOptions) => {
+  // For pure hard-evidence entries on the queried node, keep the fast path
+  if (typeof given[nodeId] === 'string') {
     return propEq(nodeId, nodeState, given) ? 1 : 0
   }
+  // For soft-evidence entries and clamp mode, return the provided distribution directly
+  if (options.clampSoftEvidence && typeof given[nodeId] === 'object' && given[nodeId] !== null) {
+    const weights = given[nodeId] as Record<string, number>
+    let sum = 0
+    for (const key in weights) sum += weights[key] || 0
+    const denom = sum > 0 ? sum : 1
+    return (weights[nodeState] || 0) / denom
+  }
 
-  return roundTo(infer(network, { [nodeId]: nodeState }, given), options.precision!)
+  const precision = options.precision !== undefined ? options.precision : 8
+  return roundTo(infer(network, { [nodeId]: nodeState }, given), precision)
 }
 
-const inferNode = (network: INetwork, node: INode, given: ICombinations, options: IInferAllOptions) =>
+const inferNode = (network: INetwork, node: INode, given: IEvidence, options: IInferAllOptions) =>
   reduce(
     (acc, nodeState) => assoc(
       nodeState,
@@ -39,14 +49,17 @@ const cloneIfForce: <T>(network: T, options: IInferAllOptions) => T = ifElse(
   identity,
 )
 
-export const inferAll = (network: INetwork, given: ICombinations = {}, options: IInferAllOptions = {}): INetworkResult => {
+export const inferAll = (network: INetwork, given: IEvidence = {}, options: IInferAllOptions = {}): INetworkResult => {
   const finalOptions = getOptions(options)
-  const networkToInfer = cloneIfForce(network, finalOptions)
-  const givenToInfer = cloneIfForce(given, finalOptions)
+  let networkToInfer = cloneIfForce(network, finalOptions)
+  const givenToInfer = given
+
+  networkToInfer = finalOptions.clampSoftEvidence ? clampNetwork(networkToInfer, givenToInfer) : networkToInfer
+  const givenForInfer: IEvidence = finalOptions.clampSoftEvidence ? {} : givenToInfer
 
   return reduce(
-    (acc, node) => assoc(node.id, inferNode(networkToInfer, node, givenToInfer, finalOptions), acc),
+    (acc, node) => assoc(node.id, inferNode(networkToInfer, node, givenForInfer, finalOptions), acc),
     {} as INetworkResult,
-    getNodesFromNetwork(network),
+    getNodesFromNetwork(networkToInfer),
   )
 }

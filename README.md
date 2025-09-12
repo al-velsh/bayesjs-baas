@@ -19,7 +19,7 @@ Currently there are three inferences algorithms:
 
 ## Methods
 
-#### infer(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), nodes?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts)): number
+#### infer(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), nodes?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), given?: [IEvidence](./src/types/IEvidence.ts)): number
 Calculate the probability of a node's state.
 
 This function receives a network, a node's state, and the knowing states and will return the probability of the node's state give.
@@ -54,11 +54,43 @@ infer(network, { 'RAIN': 'T' }).toFixed(4) // 0.2000
 infer(network, { 'RAIN': 'T' }, { 'SPRINKLER': 'F' }).toFixed(4) // 0.2920
 ```
 
-#### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [ICombinations](https://github.com/fhelwanger/bayesjs/blob/master/src/types/ICombinations.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
+### Evidence (hard and soft)
+BayesJS accepts both hard evidence (a specific state) and soft evidence (a probability distribution over a node's states). Internally, all evidence is treated as soft evidence; hard evidence is converted to weights 1 for the chosen state and 0 for the others.
+
+- Hard evidence (string):
+  ```js
+  infer(network, { RAIN: 'T' }, { SPRINKLER: 'F' })
+  // Internally: { SPRINKLER: { F: 1, T: 0 } }
+  ```
+- Soft evidence (state->weight map):
+  ```js
+  // { T: 3, F: 7 } will be normalized to { T: 0.3, F: 0.7 }
+  infer(network, { SPRINKLER: 'T' }, { RAIN: { T: 0.3, F: 0.7 } })
+  ```
+- Mix hard + soft in the same `given` object:
+  ```js
+  infer(network, { GRASS_WET: 'T' }, { SPRINKLER: 'F', RAIN: { T: 0.6, F: 0.4 } })
+  ```
+
+Rules and behavior:
+- Validation: node IDs and state names must exist in the network; weights must be non‑negative finite numbers; zero‑total soft evidence is rejected.
+- Normalization: soft weights are normalized per node to sum to 1; unspecified states are treated as 0 before normalization.
+- Engine semantics (consistent across all three):
+  - Enumeration: weighs joint assignments by soft weights and normalizes by P(given).
+  - Variable Elimination: adds a likelihood factor per evidenced node (soft weights per state).
+  - Junction Tree: multiplies clique potentials by soft weights prior to propagation.
+
+Notes:
+- You can pass both hard strings and soft maps in a single `given`; the library will merge and normalize as needed.
+- Because hard evidence is a special case of soft evidence, there is no separate hard-only path internally.
+
+#### inferAll(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), given?: [IEvidence](./src/types/IEvidence.ts), options?: [IInferAllOptions](https://github.com/fhelwanger/bayesjs/blob/master/src/types/IInferAllOptions.ts)): [INetworkResult](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetworkResult.ts))
 Calculate all probabilities from a network by receiving the network, knowing states, and options.
 It returns an object with all results.
 
 This method will execute the junction tree algorithm on each node's state.
+
+Note: `given` can mix hard and soft evidence; hard entries are treated as soft 1/0 internally.
 
 ##### Options
 
@@ -174,7 +206,7 @@ This function receives a network and a node, check if the node can be appended o
 ```js
 import { addNode } from 'bayesjs';
 
-const networkWithRainAndSprinkler = // ...
+let networkWithRainAndSprinkler;
 
 const grassWet = {
   id: 'GRASS_WET',
@@ -194,3 +226,70 @@ const newtwork = addNode(networkWithRainAndSprinkler, grassWet);
 ## License
 
 MIT
+
+## What’s new in this version.
+- Evidence input now supports both hard (strings) and soft (state→weight maps) via `IEvidence` everywhere (`infer`, `inferAll`).
+- Default behavior treats soft maps as virtual evidence (likelihoods) consistently across all engines.
+- Optional clamped soft evidence mode for `inferAll` (`clampSoftEvidence: true`) to take distributions as authoritative posteriors for the evidenced nodes (parents removed, CPT overridden).
+- Mixed inputs (hard + soft) are supported in a single `given` object.
+
+### Quick usage examples
+```ts
+import { infer, inferences } from 'bayesjs'
+
+// Hard evidence (unchanged)
+infer(network, { RAIN: 'T' }, { SPRINKLER: 'F' })
+
+// Soft (virtual) evidence (likelihoods; normalized per node)
+infer(network, { SPRINKLER: 'T' }, { RAIN: { T: 0.3, F: 0.7 } })
+
+// Mixed hard + soft
+await infer(network, { GRASS_WET: 'T' }, { SPRINKLER: 'F', RAIN: { T: 0.6, F: 0.4 } })
+```
+
+### Terminology
+In the literature, “soft evidence” can mean either:
+- Likelihood/virtual evidence (weights combined with the model), or
+- Clamped/posterior evidence (provided distribution is taken as the node’s posterior).
+
+In this library:
+- “Soft (virtual) evidence” is the default (likelihood-based) behavior.
+- “Clamped soft evidence” is opt-in (see below under `inferAll`).
+
+### Soft vs Virtual Evidence
+- Virtual evidence (default): soft maps are treated as likelihoods and combined with the network priors/structure to produce posteriors.
+- Clamped soft evidence (optional): treat provided distributions as authoritative posteriors for the evidenced nodes by overriding their CPTs and removing their parents.
+
+#### inferAll (virtual evidence; default)
+```ts
+// Soft maps act as likelihoods (not returned directly)
+const result = inferAll(network, { RAIN: { T: 0.3, F: 0.7 } })
+// result.RAIN is the posterior given the network + evidence (generally ≠ {0.3,0.7})
+```
+
+#### inferAll with clamped soft evidence
+```ts
+// Clamp mode: take distributions as authoritative for evidenced nodes
+const result = inferAll(network, { RAIN: { T: 0.6, F: 0.4 } }, { clampSoftEvidence: true })
+// result.RAIN === { T: 0.6, F: 0.4 } (normalized if needed)
+// Other nodes are inferred over the clamped network
+
+// Hard evidence in clamp mode maps to {1,0}
+const hard = inferAll(network, { SPRINKLER: 'F' }, { clampSoftEvidence: true })
+// hard.SPRINKLER === { T: 0, F: 1 }
+```
+
+#### inferAll behavior for evidenced nodes
+- Hard evidence: always returned as {1,0} for that node.
+- Soft evidence:
+  - clampSoftEvidence=false (default/virtual): run inference; the node’s posterior is not equal to the provided weights in general.
+  - clampSoftEvidence=true (clamped): return the provided distribution (normalized) directly for that node.
+
+#### Validation and normalization
+- Unknown node IDs/states are rejected.
+- Weights must be non-negative finite numbers.
+- Per-node weights are normalized to sum to 1 (unspecified states → 0). Zero-total is rejected.
+
+#### Performance tips
+- Avoid mutating `network` or the `given` object in place between calls. Prefer creating new objects or use `inferAll(..., { force: true })` if you must mutate.
+- Junction Tree uses WeakMap caches; stable object identities improve cache hits.

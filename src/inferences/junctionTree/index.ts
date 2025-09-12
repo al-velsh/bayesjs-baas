@@ -4,6 +4,7 @@ import {
   ICombinations,
   IInfer,
   INetwork,
+  IEvidence,
 } from '../../types'
 import {
   filterCliquePotentialsByNodeCombinations,
@@ -15,6 +16,7 @@ import {
 import createCliques from './create-cliques'
 import getCliquesPotentials from './get-cliques-potentials'
 import { sum } from 'ramda'
+import { prepareEvidence } from '../../utils/evidence'
 
 const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nodes: ICombinations) => {
   const cliquesNode = filterCliquesByNodeCombinations(cliques, nodes)
@@ -26,9 +28,10 @@ const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nod
   return sum(thens)
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: ICombinations = {}): number => {
+export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
-  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given)
+  const softEvidence = prepareEvidence(network, given)
+  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given, softEvidence)
 
   return getResult(cliques, cliquesPotentials, nodes)
 }

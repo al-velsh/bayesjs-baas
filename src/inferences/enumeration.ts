@@ -1,7 +1,8 @@
-import { ICombinations, ICptWithParents, ICptWithoutParents, IInfer, INetwork } from '../types'
+import { ICombinations, ICptWithParents, ICptWithoutParents, IInfer, INetwork, IEvidence } from '../types'
 
 import { buildCombinations } from '../utils'
 import { equals } from 'ramda'
+import { prepareEvidence } from '../utils/evidence'
 
 const combinationsCache = new WeakMap()
 
@@ -21,7 +22,7 @@ const filterCombinations = (combinations: ICombinations[], nodesToFilter: ICombi
   })
 }
 
-const calculateProbabilities = (network: INetwork, combinations: ICombinations[]): number => {
+const calculateProbabilities = (network: INetwork, combinations: ICombinations[], softEvidence: Record<string, Record<string, number>>): number => {
   const rowsProducts: number[] = []
 
   for (let i = 0; i < combinations.length; i++) {
@@ -57,6 +58,16 @@ const calculateProbabilities = (network: INetwork, combinations: ICombinations[]
       }
     }
 
+    // Multiply by soft evidence (weights are normalized)
+    const softIds = Object.keys(softEvidence)
+    for (const nodeId of softIds) {
+      const weights = softEvidence[nodeId]
+      const state = row[nodeId]
+      if (state !== undefined) {
+        rowProduct *= weights[state] || 0
+      }
+    }
+
     rowsProducts.push(rowProduct)
   }
 
@@ -69,7 +80,7 @@ const calculateProbabilities = (network: INetwork, combinations: ICombinations[]
   return probability
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: ICombinations): number => {
+export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: IEvidence): number => {
   let combinations: ICombinations[] = combinationsCache.get(network)
 
   if (combinations === undefined) {
@@ -77,13 +88,13 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: 
     combinationsCache.set(network, combinations)
   }
 
-  let filteredCombinations: ICombinations[] = filterCombinations(combinations, nodes)
-  let probGiving = 1
+  const softEvidence = prepareEvidence(network, giving)
 
-  if (giving) {
-    filteredCombinations = filterCombinations(filteredCombinations, giving)
-    probGiving = infer(network, giving)
-  }
+  const filteredForQuery = filterCombinations(combinations, nodes)
+  const probQueryAndSoft = calculateProbabilities(network, filteredForQuery, softEvidence)
+  const probSoft = calculateProbabilities(network, combinations, softEvidence)
 
-  return calculateProbabilities(network, filteredCombinations) / probGiving
+  if (probSoft === 0) return 0
+
+  return probQueryAndSoft / probSoft
 }
