@@ -19,6 +19,14 @@ const inferNodeState = (network: INetwork, nodeId: string, nodeState: string, gi
   if (typeof given[nodeId] === 'string') {
     return propEq(nodeId, nodeState, given) ? 1 : 0
   }
+  // For soft-evidence entries and clamp mode, return the provided distribution directly
+  if (options.clampSoftEvidence && typeof given[nodeId] === 'object' && given[nodeId] !== null) {
+    const weights = given[nodeId] as Record<string, number>
+    let sum = 0
+    for (const key in weights) sum += weights[key] || 0
+    const denom = sum > 0 ? sum : 1
+    return (weights[nodeState] || 0) / denom
+  }
 
   const precision = options.precision !== undefined ? options.precision : 8
   return roundTo(infer(network, { [nodeId]: nodeState }, given), precision)
@@ -43,15 +51,15 @@ const cloneIfForce: <T>(network: T, options: IInferAllOptions) => T = ifElse(
 
 export const inferAll = (network: INetwork, given: IEvidence = {}, options: IInferAllOptions = {}): INetworkResult => {
   const finalOptions = getOptions(options)
-  const networkToInfer = cloneIfForce(network, finalOptions)
+  let networkToInfer = cloneIfForce(network, finalOptions)
   const givenToInfer = given
 
-  const networkClamped = finalOptions.clampSoftEvidence ? clampNetwork(networkToInfer, givenToInfer) : networkToInfer
+  networkToInfer = finalOptions.clampSoftEvidence ? clampNetwork(networkToInfer, givenToInfer) : networkToInfer
   const givenForInfer: IEvidence = finalOptions.clampSoftEvidence ? {} : givenToInfer
 
   return reduce(
-    (acc, node) => assoc(node.id, inferNode(networkClamped, node, givenForInfer, finalOptions), acc),
+    (acc, node) => assoc(node.id, inferNode(networkToInfer, node, givenForInfer, finalOptions), acc),
     {} as INetworkResult,
-    getNodesFromNetwork(networkClamped),
+    getNodesFromNetwork(networkToInfer),
   )
 }
