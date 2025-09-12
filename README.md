@@ -226,3 +226,70 @@ const newtwork = addNode(networkWithRainAndSprinkler, grassWet);
 ## License
 
 MIT
+
+## What’s new in this version.
+- Evidence input now supports both hard (strings) and soft (state→weight maps) via `IEvidence` everywhere (`infer`, `inferAll`).
+- Default behavior treats soft maps as virtual evidence (likelihoods) consistently across all engines.
+- Optional clamped soft evidence mode for `inferAll` (`clampSoftEvidence: true`) to take distributions as authoritative posteriors for the evidenced nodes (parents removed, CPT overridden).
+- Mixed inputs (hard + soft) are supported in a single `given` object.
+
+### Quick usage examples
+```ts
+import { infer, inferences } from 'bayesjs'
+
+// Hard evidence (unchanged)
+infer(network, { RAIN: 'T' }, { SPRINKLER: 'F' })
+
+// Soft (virtual) evidence (likelihoods; normalized per node)
+infer(network, { SPRINKLER: 'T' }, { RAIN: { T: 0.3, F: 0.7 } })
+
+// Mixed hard + soft
+await infer(network, { GRASS_WET: 'T' }, { SPRINKLER: 'F', RAIN: { T: 0.6, F: 0.4 } })
+```
+
+### Terminology
+In the literature, “soft evidence” can mean either:
+- Likelihood/virtual evidence (weights combined with the model), or
+- Clamped/posterior evidence (provided distribution is taken as the node’s posterior).
+
+In this library:
+- “Soft (virtual) evidence” is the default (likelihood-based) behavior.
+- “Clamped soft evidence” is opt-in (see below under `inferAll`).
+
+### Soft vs Virtual Evidence
+- Virtual evidence (default): soft maps are treated as likelihoods and combined with the network priors/structure to produce posteriors.
+- Clamped soft evidence (optional): treat provided distributions as authoritative posteriors for the evidenced nodes by overriding their CPTs and removing their parents.
+
+#### inferAll (virtual evidence; default)
+```ts
+// Soft maps act as likelihoods (not returned directly)
+const result = inferAll(network, { RAIN: { T: 0.3, F: 0.7 } })
+// result.RAIN is the posterior given the network + evidence (generally ≠ {0.3,0.7})
+```
+
+#### inferAll with clamped soft evidence
+```ts
+// Clamp mode: take distributions as authoritative for evidenced nodes
+const result = inferAll(network, { RAIN: { T: 0.6, F: 0.4 } }, { clampSoftEvidence: true })
+// result.RAIN === { T: 0.6, F: 0.4 } (normalized if needed)
+// Other nodes are inferred over the clamped network
+
+// Hard evidence in clamp mode maps to {1,0}
+const hard = inferAll(network, { SPRINKLER: 'F' }, { clampSoftEvidence: true })
+// hard.SPRINKLER === { T: 0, F: 1 }
+```
+
+#### inferAll behavior for evidenced nodes
+- Hard evidence: always returned as {1,0} for that node.
+- Soft evidence:
+  - clampSoftEvidence=false (default/virtual): run inference; the node’s posterior is not equal to the provided weights in general.
+  - clampSoftEvidence=true (clamped): return the provided distribution (normalized) directly for that node.
+
+#### Validation and normalization
+- Unknown node IDs/states are rejected.
+- Weights must be non-negative finite numbers.
+- Per-node weights are normalized to sum to 1 (unspecified states → 0). Zero-total is rejected.
+
+#### Performance tips
+- Avoid mutating `network` or the `given` object in place between calls. Prefer creating new objects or use `inferAll(..., { force: true })` if you must mutate.
+- Junction Tree uses WeakMap caches; stable object identities improve cache hits.
