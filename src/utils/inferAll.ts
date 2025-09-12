@@ -5,6 +5,7 @@ import { assoc, clone, identity, ifElse, mergeRight, nthArg, pipe, propEq, reduc
 import { getNodeStates, getNodesFromNetwork } from './network'
 
 import { infer } from '../inferences/junctionTree'
+import { clampNetwork } from './clamp'
 
 const defaultOptions: IInferAllOptions = {
   force: false,
@@ -43,11 +44,14 @@ const cloneIfForce: <T>(network: T, options: IInferAllOptions) => T = ifElse(
 export const inferAll = (network: INetwork, given: IEvidence = {}, options: IInferAllOptions = {}): INetworkResult => {
   const finalOptions = getOptions(options)
   const networkToInfer = cloneIfForce(network, finalOptions)
-  const givenToInfer = cloneIfForce(given, finalOptions)
+  const givenToInfer = given
+
+  const networkClamped = finalOptions.clampSoftEvidence ? clampNetwork(networkToInfer, givenToInfer) : networkToInfer
+  const givenForInfer: IEvidence = finalOptions.clampSoftEvidence ? {} : givenToInfer
 
   return reduce(
-    (acc, node) => assoc(node.id, inferNode(networkToInfer, node, givenToInfer, finalOptions), acc),
+    (acc, node) => assoc(node.id, inferNode(networkClamped, node, givenForInfer, finalOptions), acc),
     {} as INetworkResult,
-    getNodesFromNetwork(network),
+    getNodesFromNetwork(networkClamped),
   )
 }

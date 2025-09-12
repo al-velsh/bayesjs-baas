@@ -124,6 +124,38 @@ describe('InferAll Utils', () => {
       })
     })
 
+    describe('inferAll with clampSoftEvidence', () => {
+      it('clamps hard evidence as {1,0} (alarm: BURGLARY)', () => {
+        const res = inferAll(alarm, { BURGLARY: 'T' }, { clampSoftEvidence: true })
+        expect(res.BURGLARY.T).toBe(1)
+        expect(res.BURGLARY.F).toBe(0)
+      })
+
+      it('clamps soft evidence exactly on the evidenced node (sprinkler: RAIN)', () => {
+        const res = inferAll(sprinkler, { RAIN: { T: 0.3, F: 0.7 } }, { clampSoftEvidence: true })
+        expect(Number(res.RAIN.T.toFixed(6))).toBe(0.3)
+        expect(Number(res.RAIN.F.toFixed(6))).toBe(0.7)
+        // still a proper distribution on other nodes
+        expect(Number((res.SPRINKLER.T + res.SPRINKLER.F).toFixed(6))).toBe(1)
+      })
+
+      it('clamped-hard equals standard hard evidence results for downstream nodes (alarm)', () => {
+        const hard = inferAll(alarm, { BURGLARY: 'T' })
+        const clamped = inferAll(alarm, { BURGLARY: 'T' }, { clampSoftEvidence: true })
+        // compare some downstream nodes
+        expect(Number(hard.ALARM.T.toFixed(6))).toBe(Number(clamped.ALARM.T.toFixed(6)))
+        expect(Number(hard.JOHN_CALLS.T.toFixed(6))).toBe(Number(clamped.JOHN_CALLS.T.toFixed(6)))
+      })
+
+      it('mix of clamped soft and hard applies: (sprinkler: RAIN soft, SPRINKLER hard)', () => {
+        const res = inferAll(sprinkler, { RAIN: { T: 0.6, F: 0.4 }, SPRINKLER: 'F' }, { clampSoftEvidence: true })
+        expect(Number(res.RAIN.T.toFixed(6))).toBe(0.6)
+        expect(Number(res.RAIN.F.toFixed(6))).toBe(0.4)
+        expect(res.SPRINKLER.T).toBe(0)
+        expect(res.SPRINKLER.F).toBe(1)
+      })
+    })
+
     describe('inferAll with soft evidence', () => {
       it('maps hard evidence to soft {1,0} equivalently (alarm: BURGLARY)', () => {
         const hard = inferAll(alarm, { BURGLARY: 'T' })

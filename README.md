@@ -196,6 +196,20 @@ inferAll(network, given, { force: true });
 // }
 ```
 
+### Soft vs Virtual Evidence
+- Virtual evidence (default): soft maps are treated as likelihoods and combined with the network priors/structure to produce posteriors.
+- Clamped soft evidence (optional): treat provided distributions as authoritative posteriors for the evidenced nodes by overriding their CPTs and removing their parents.
+
+#### inferAll with clamped soft evidence
+```js
+// Treat given distributions as clamped (authoritative)
+inferAll(network, { RAIN: { T: 0.6, F: 0.4 } }, { clampSoftEvidence: true })
+```
+Notes:
+- Hard evidence is equivalent to clamped {1,0}.
+- Only nodes in the evidence are clamped; other nodes are inferred in the (modified) network.
+- Default remains virtual evidence; enable clamp only when the provided distributions should be taken as ground truth.
+
 #### addNode(network: [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts), node: [INode](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INode.ts)): [INetwork](https://github.com/fhelwanger/bayesjs/blob/master/src/types/INetwork.ts)
 Add a node in a Bayesian Network.
 
