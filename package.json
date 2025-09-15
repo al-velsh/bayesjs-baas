@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "webpack --mode production",
+    "prepare": "pnpm run build",
     "commit": "git-cz",
     "watch": "webpack -w",
     "lint": "eslint \"**/*.ts\"",
