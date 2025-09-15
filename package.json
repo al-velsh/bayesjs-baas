@@ -12,7 +12,7 @@
     "npm": ">= 6"
   },
   "scripts": {
-    "build": "webpack --mode production",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider webpack --mode production",
     "prepare": "pnpm run build",
     "commit": "git-cz",
     "watch": "webpack -w",
