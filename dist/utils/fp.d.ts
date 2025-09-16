@@ -1,0 +1,13 @@
+export declare const isNotNil: (...args: readonly any[]) => boolean;
+export declare const isNotEmpty: (...args: readonly any[]) => boolean;
+export declare const includesFlipped: (...a: readonly any[]) => any;
+export declare const isString: (val: any) => boolean;
+export declare const isNumber: (val: any) => boolean;
+export declare const isObject: (val: any) => boolean;
+export declare const isNotString: (...args: readonly any[]) => boolean;
+export declare const isNotNumber: (...args: readonly any[]) => boolean;
+export declare const isNotObject: (...args: readonly any[]) => boolean;
+export declare const propIsNotNil: (propName: string, obj: object) => boolean;
+export declare const objectEqualsByIntersectionKeys: (objA: object, objB: object) => boolean;
+export declare const objectEqualsByFirstObjectKeys: (objA: object, objB: object) => boolean;
+export declare const sortStringsAsc: (strings: string[]) => string[];

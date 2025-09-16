@@ -1,0 +1,10 @@
+import { IClique, ICliquePotentialItem, ICliquePotentials, ICombinations, INode } from '../types';
+export declare const mapPotentialsThen: (potentials: ICliquePotentialItem[]) => number[];
+export declare const sumCliquePotentials: (potentials: ICliquePotentialItem[]) => number;
+export declare const hasNodeIdsInClique: (clique: IClique, nodeIds: string[]) => boolean;
+export declare const hasNodeIdAndParentsInClique: (clique: IClique, node: INode) => boolean;
+export declare const getCliqueWithLessNodes: (cliques: IClique[]) => IClique;
+export declare const filterCliquesByNodeCombinations: (cliques: IClique[], nodes?: ICombinations) => IClique[];
+export declare const filterCliquePotentialsByNodeCombinations: (potentials: ICliquePotentialItem[], nodes: ICombinations) => ICliquePotentialItem[];
+export declare const normalizeCliquePotential: (potentials: ICliquePotentialItem[]) => ICliquePotentialItem[];
+export declare const normalizeCliquePotentials: (cliquesPotentials: ICliquePotentials) => ICliquePotentials;
