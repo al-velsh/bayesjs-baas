@@ -13,7 +13,6 @@
   },
   "scripts": {
     "build": "NODE_OPTIONS=--openssl-legacy-provider webpack --mode production",
-    "prepare": "pnpm run build",
     "commit": "git-cz",
     "watch": "webpack -w",
     "lint": "eslint \"**/*.ts\"",
