@@ -48,7 +48,15 @@ function getPotentialForFamily (potential: ICliquePotentialItem[], family: strin
   return newPotentials
 }
 
-// Implementation of the EM Algorithm
+/**
+ * Performs one epoch of the EM (Expectation-Maximization) algorithm for learning from evidence.
+ * This function implements both the expectation step (calculating expected counts) and the
+ * maximization step (updating network parameters).
+ * @param network - The Bayesian network to update
+ * @param given - Array of evidence instances to learn from
+ * @returns Updated network with new parameters learned from the evidence
+ */
+
 export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[] = []): INetwork {
   if (given.length === 0) {
     return network
@@ -69,8 +77,6 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
       }
       const rawCliquePotential = rawResults.cliquesPotentials[bestCliqueId]
       const cliquePotential = getPotentialForFamily(rawCliquePotential, nodeFamily)
-      // console.log(cliquePotential)
-
       if (expectedCounts[nodeId]) {
         for (let i = 0; i < expectedCounts[nodeId].length; i++) {
           expectedCounts[nodeId][i].then += cliquePotential[i].then
@@ -80,8 +86,6 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
       }
     }
   }
-
-  // console.log(expectedCounts)
 
   // Maximization Step
 
@@ -168,6 +172,17 @@ function loglikelihood (network: INetwork, given: IEvidence[]) {
 
   return resValue
 }
+
+/**
+ * Performs iterative learning from evidence using the EM algorithm.
+ *
+ * @param network - The initial Bayesian network to be trained
+ * @param given - Array of evidence instances for training
+ * @param nEpochs - Number of training epochs to perform (default: 50)
+ * @param dataPercentageEpoch - Percentage of available data to use per epoch (default: 0.5)
+ * @param validationDataPercentage - Percentage of available data to use for validation exclusive (default: 0)
+ * @returns Updated network after training with the specified parameters
+ */
 
 export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], nEpochs = 50, dataPercentageEpoch = 0.75, validationDataPercentage = 0): INetwork {
   let newNetwork = JSON.parse(JSON.stringify(network))
