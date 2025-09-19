@@ -293,3 +293,12 @@ const hard = inferAll(network, { SPRINKLER: 'F' }, { clampSoftEvidence: true })
 #### Performance tips
 - Avoid mutating `network` or the `given` object in place between calls. Prefer creating new objects or use `inferAll(..., { force: true })` if you must mutate.
 - Junction Tree uses WeakMap caches; stable object identities improve cache hits.
+
+## Parameter learning
+
+The library supports parameter learning using the EM algorithm.
+Can be used with the `learningFromEvidence` function.
+
+```ts
+const result = learningFromEvidence(network, evidence)
+```
