@@ -1,7 +1,7 @@
 import * as expect from 'expect'
 
 import { createNetwork } from '../../src/utils'
-import { allNodes } from '../../models/micro-test'
+import { allNodes } from '../../models/paren-child-zero-knowledge-cpt'
 import { ICptWithParents, IEvidence, INetwork } from '../../src'
 import { learningFromEvidence } from '../../src/utils/learning'
 import { allNodesSprinkler } from '../../models/extended-splinker'
