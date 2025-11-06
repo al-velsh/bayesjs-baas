@@ -1,4 +1,4 @@
-import { getPreNormalizePotentials, rawInfer } from '../inferences/junctionTree'
+import { getPreNormalizedPotentials, rawInfer } from '../inferences/junctionTree'
 import {
   IClique,
   ICliquePotentialItem,
@@ -150,7 +150,7 @@ function getEvidenceProbability (network: INetwork, given: IEvidence[]) {
   let resValue = 0
 
   for (const evidence of given) {
-    const potential = getPreNormalizePotentials(network, evidence).cliquesPotentials['0']
+    const potential = getPreNormalizedPotentials(network, evidence).cliquesPotentials['0']
 
     for (const entry of potential) {
       resValue += entry.then

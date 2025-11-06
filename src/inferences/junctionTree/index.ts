@@ -39,7 +39,7 @@ export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer =>
   return { cliques, cliquesPotentials }
 }
 
-export const getPreNormalizePotentials = (network: INetwork, given: IEvidence = {}): IRawInfer => {
+export const getPreNormalizedPotentials = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
   const softEvidence = prepareEvidence(network, given)
   const prePropagatedCliquesPotentials = createInitialPotentials(cliques, network, softEvidence || {})
