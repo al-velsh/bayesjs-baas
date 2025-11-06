@@ -162,7 +162,7 @@ function getEvidenceProbability (network: INetwork, given: IEvidence[]) {
   return resValue
 }
 
-// This function is not used in the project right now, as need to be fix, but is going to be used in the future
+// This function is not used in the project right now, as need to be fixed, but is going to be used in the future
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function loglikelihood (network: INetwork, given: IEvidence[]) {
   let resValue = 0
