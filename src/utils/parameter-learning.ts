@@ -185,7 +185,7 @@ function loglikelihood (network: INetwork, given: IEvidence[]) {
  * @returns Updated network after training with the specified parameters
  */
 
-// This function is not finish, that is why contains some unused variables and comments
+// This function is not finished, that is why contains some unused variables and comments
 export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], nEpochs = 50, dataPercentageEpoch = 0.75, validationDataPercentage = 0): INetwork {
   let newNetwork = JSON.parse(JSON.stringify(network))
 
