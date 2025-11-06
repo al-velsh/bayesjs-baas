@@ -1,4 +1,4 @@
-import { IClique, ICliquePotentials, ICombinations, IEvidence, IInfer, INetwork, IrawInfer } from '../../types'
+import { IClique, ICliquePotentials, ICombinations, IEvidence, IInfer, INetwork, IRawInfer } from '../../types'
 import {
   filterCliquePotentialsByNodeCombinations,
   filterCliquesByNodeCombinations,
@@ -31,25 +31,19 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IE
   return getResult(cliques, cliquesPotentials, nodes)
 }
 
-export const rawInfer = (network: INetwork, given: IEvidence = {}): IrawInfer => {
+export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
   const softEvidence = prepareEvidence(network, given)
   const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given, softEvidence)
 
-  return {
-    cliques: cliques,
-    cliquesPotentials: cliquesPotentials,
-  }
+  return { cliques, cliquesPotentials }
 }
 
-export const getPrenNormalizePotentials = (network: INetwork, given: IEvidence = {}): IrawInfer => {
+export const getPreNormalizedPotentials = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
   const softEvidence = prepareEvidence(network, given)
-  const cliquesPotentials = createInitialPotentials(cliques, network, softEvidence || {})
-  const finalCliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, cliquesPotentials)
+  const prePropagatedCliquesPotentials = createInitialPotentials(cliques, network, softEvidence || {})
+  const cliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, prePropagatedCliquesPotentials)
 
-  return {
-    cliques: cliques,
-    cliquesPotentials: finalCliquesPotentials,
-  }
+  return { cliques, cliquesPotentials }
 }
