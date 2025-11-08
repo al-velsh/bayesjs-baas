@@ -136,7 +136,7 @@ function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCo
  * @param given - Array of evidence instances for training
  * @returns Updated network after training with the specified parameters
  */
-export function expectationStep (network: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
+function expectationStep (network: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
   const newGiven = JSON.parse(JSON.stringify(given))
 
   const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
