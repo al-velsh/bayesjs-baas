@@ -16,6 +16,8 @@ describe('Learning Utils', () => {
 
       newNetwork = learningFromEvidence(newNetwork, completeDataSetParentChild)
 
+      console.log(JSON.stringify(newNetwork, null, 2))
+
       const childNode = newNetwork.CHILD
       const childCpt = childNode.cpt as ICptWithParents
 
@@ -38,6 +40,8 @@ describe('Learning Utils', () => {
       let newNetwork = sprinklerExtendedNetwork
 
       newNetwork = learningFromEvidence(newNetwork, missingWhetherRainDataSetSprinkler)
+
+      console.log(JSON.stringify(newNetwork, null, 2))
 
       const weatherNode = newNetwork.Weather
       const weatherCpt = weatherNode.cpt as ICptWithParents
