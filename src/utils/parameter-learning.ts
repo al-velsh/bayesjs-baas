@@ -1,4 +1,4 @@
-import { getPreNormalizedPotentials, rawInfer } from '../inferences/junctionTree'
+import { rawInfer } from '../inferences/junctionTree'
 import {
   IClique,
   ICliquePotentialItem,
@@ -19,9 +19,7 @@ function getPotentialForFamily (potential: ICliquePotentialItem[], family: strin
   const newPotentialsMap: Map<string, number> = new Map()
 
   // Marginalize
-  let totalValue = 0
   for (const entry of potential) {
-    totalValue += entry.then
     const newWhen: Record<string, string> = {}
     for (const [inode, istate] of Object.entries(entry.when)) {
       if (family.includes(inode)) {
@@ -29,67 +27,23 @@ function getPotentialForFamily (potential: ICliquePotentialItem[], family: strin
       }
     }
 
-    const entryValue = newPotentialsMap.get(JSON.stringify(newWhen))
-    if (entryValue) {
-      newPotentialsMap.set(JSON.stringify(newWhen), entryValue + entry.then)
-    } else {
-      newPotentialsMap.set(JSON.stringify(newWhen), entry.then)
-    }
+    const entryValue = newPotentialsMap.get(JSON.stringify(newWhen)) || 0
+    newPotentialsMap.set(JSON.stringify(newWhen), entryValue + entry.then)
   }
 
-  // Normalize
   const newPotentials: ICliquePotentialItem[] = []
   for (const [key, value] of newPotentialsMap) {
     newPotentials.push({
       when: JSON.parse(key),
-      then: value / totalValue,
+      then: value,
     })
   }
   return newPotentials
 }
 
-/**
- * Performs one epoch of the Expectation Maximization (EM) algorithm for learning from evidence.
- * This function implements both the expectation step (calculating expected counts) and the
- * maximization step (updating network parameters).
- * @param network - The Bayesian network to update
- * @param given - Array of evidence instances to learn from
- * @returns Updated network with new parameters learned from the evidence
- */
-
-export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[] = []): INetwork {
-  if (given.length === 0) {
-    return network
-  }
-
-  // Expectation Step
-  const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
-
-  for (const evidence of given) {
-    const rawResults = rawInfer(network, evidence)
-
-    for (const nodeId in network) {
-      const node = network[nodeId]
-      const nodeFamily = [nodeId, ...node.parents]
-      const familyCliqueId = getCliqueIdContainingNodes(rawResults.cliques, nodeFamily)
-      if (!familyCliqueId) {
-        throw new Error('Implementation error: no clique containing the node family was found')
-      }
-      const rawFamilyCliquePotential = rawResults.cliquesPotentials[familyCliqueId]
-      const familyCliquePotential = getPotentialForFamily(rawFamilyCliquePotential, nodeFamily)
-      if (expectedCounts[nodeId]) {
-        for (let i = 0; i < expectedCounts[nodeId].length; i++) {
-          expectedCounts[nodeId][i].then += familyCliquePotential[i].then
-        }
-      } else {
-        expectedCounts[nodeId] = familyCliquePotential
-      }
-    }
-  }
-
-  // Maximization Step
-
+function maximizationStep (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>) {
   const newNetwork: INetwork = JSON.parse(JSON.stringify(network))
+  const expectedCounts: Record<string, ICliquePotentialItem[]> = JSON.parse(JSON.stringify(originalExpectedCounts))
 
   for (const nodeId in newNetwork) {
     const node = newNetwork[nodeId]
@@ -120,13 +74,13 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
       const nodeState = entry.when[nodeId]
       delete entry.when[nodeId]
       const findIndex = newCpt.findIndex(x => Object.keys(x.when).every(key => entry.when[key] === x.when[key]))
-      if (findIndex === -1) {
+      if (findIndex !== -1) {
+        newCpt[findIndex].then[nodeState] = entry.then
+      } else {
         newCpt.push({
           when: entry.when,
           then: { [nodeState]: entry.then },
         })
-      } else {
-        newCpt[findIndex].then[nodeState] = entry.then
       }
     }
 
@@ -146,66 +100,303 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
   return newNetwork
 }
 
-function getEvidenceProbability (network: INetwork, given: IEvidence[]) {
-  let resValue = 0
+function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>) {
+  let logLikelihood = 0
 
-  for (const evidence of given) {
-    const potential = getPreNormalizedPotentials(network, evidence).cliquesPotentials['0']
+  for (const nodeId in network) {
+    const node = network[nodeId]
+    const potentials = originalExpectedCounts[nodeId]
+    for (const potential of potentials) {
+      const countContext = potential.when
+      let cptProbabiltyOfContext = 0
+      if (node.parents.length === 0) {
+        const cpt = node.cpt as ICptWithoutParents
+        cptProbabiltyOfContext = cpt[countContext[nodeId]]
+      } else {
+        const cpt = node.cpt as ICptWithParents
+        const entryOfContext = cpt.find(x => Object.keys(x.when).every(key => countContext[key] === x.when[key]))
+        if (entryOfContext) {
+          cptProbabiltyOfContext = entryOfContext.then[countContext[nodeId]]
+        } else {
+          throw Error('Implementation error: no entry of context was found')
+        }
+      }
 
-    for (const entry of potential) {
-      resValue += entry.then
+      logLikelihood += potential.then * Math.log(cptProbabiltyOfContext)
     }
   }
 
-  resValue /= given.length
-
-  return resValue
+  return logLikelihood
 }
 
-// This function is not used in the project right now, as need to be fixed, but is going to be used in the future
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function loglikelihood (network: INetwork, given: IEvidence[]) {
-  let resValue = 0
-  for (const evidence of given) {
-    const probability = getEvidenceProbability(network, [evidence])
-    resValue += Math.log(probability)
+/**
+ * For fully observed soft evidence (no hidden variables), compute counts directly.
+ * CRITICAL: Must account for network dependencies when computing joint probabilities!
+ */
+function computeDirectCountsForFullyObservedSoftEvidence (network: INetwork, evidence: IEvidence): Record<string, ICliquePotentialItem[]> {
+  const counts: Record<string, ICliquePotentialItem[]> = {}
+
+  // Generate all state combinations for each node family
+  function generateCombinations (familyNodes: string[], index: number, current: Record<string, string>, result: Record<string, string>[]) {
+    if (index === familyNodes.length) {
+      result.push({ ...current })
+      return
+    }
+
+    const currentNode = familyNodes[index]
+    const { states } = network[currentNode]
+
+    for (const state of states) {
+      current[currentNode] = state
+      generateCombinations(familyNodes, index + 1, current, result)
+    }
   }
 
-  return resValue
+  for (const nodeId in network) {
+    const node = network[nodeId]
+    const nodeFamily = [nodeId, ...node.parents]
+    const combinations: Record<string, string>[] = []
+    generateCombinations(nodeFamily, 0, {}, combinations)
+
+    const potentials: ICliquePotentialItem[] = []
+
+    for (const combination of combinations) {
+      // Compute weight as product of soft evidence values
+      // This is correct because soft evidence represents MARGINAL probabilities,
+      // and we're computing the weight for this specific joint configuration
+      let weight = 1.0
+      for (const familyNodeId of nodeFamily) {
+        const state = combination[familyNodeId]
+        const nodeEvidence = evidence[familyNodeId]
+        if (typeof nodeEvidence !== 'string') {
+          weight *= nodeEvidence[state] || 0
+        }
+      }
+
+      potentials.push({
+        when: combination,
+        then: weight,
+      })
+    }
+
+    counts[nodeId] = potentials
+  }
+
+  return counts
 }
 
 /**
  * Performs iterative learning from evidence using the EM algorithm.
  *
- * @param network - The initial Bayesian network to be trained
+ * @param network - The current Bayesian network (may be learned from previous iterations)
+ * @param originalNetwork - The original/initial network structure (for fully observed soft evidence)
  * @param given - Array of evidence instances for training
- * @param nEpochs - Number of training epochs to perform (default: 50)
- * @param dataPercentageEpoch - Percentage of available data to use per epoch (default: 0.5)
- * @param validationDataPercentage - Percentage of available data to use for validation exclusive (default: 0)
  * @returns Updated network after training with the specified parameters
  */
+function expectationStep (network: INetwork, originalNetwork: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
+  const newGiven = JSON.parse(JSON.stringify(given))
 
-// This function is not finished, that is why contains some unused variables and comments
-export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], nEpochs = 50, dataPercentageEpoch = 0.75, validationDataPercentage = 0): INetwork {
-  let newNetwork = JSON.parse(JSON.stringify(network))
+  const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
 
-  const nDataEpoch = Math.floor(given.length * dataPercentageEpoch)
-  const nValidation = Math.floor(given.length * validationDataPercentage)
+  for (const evidence of newGiven) {
+    let nodeCounts: Record<string, ICliquePotentialItem[]>
 
-  const randomGiven = given.sort(() => Math.random() - 0.5)
+    // Separate nodes by whether they have evidence and parents
+    const observedRootNodes: string[] = [] // Nodes with soft evidence but no parents
+    const observedDescendants: string[] = [] // Nodes with soft evidence and parents
+    const hiddenNodes: string[] = [] // Nodes without evidence
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const validationData = randomGiven.slice(0, nValidation)
-  const trainingData = randomGiven.slice(nValidation)
+    for (const nodeId in network) {
+      const hasEvidence = nodeId in evidence && typeof evidence[nodeId] !== 'string'
+      const hasParents = network[nodeId].parents.length > 0
 
-  for (let iteration = 0; iteration < nEpochs; iteration++) {
-    const randomIndices = Array.from({ length: trainingData.length }, (_, i) => i)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, nDataEpoch)
-    const combinations = randomIndices.map(index => ({ ...trainingData[index] }))
-    newNetwork = learningFromEvidenceEpoch(newNetwork, combinations)
-    // console.log(`Epoch ${iteration + 1} - Evidence Probability: ${getEvidenceProbability(newNetwork, validationData)}`)
-    // console.log(`Epoch ${iteration + 1} - Loglikelihood: ${loglikelihood(newNetwork, validationData)}`)
+      if (hasEvidence && !hasParents) {
+        observedRootNodes.push(nodeId)
+      } else if (hasEvidence && hasParents) {
+        observedDescendants.push(nodeId)
+      } else if (!hasEvidence) {
+        hiddenNodes.push(nodeId)
+      }
+    }
+
+    const fullyObserved = hiddenNodes.length === 0
+    const allIndependent = Object.values(network).every(node => node.parents.length === 0)
+
+    if (fullyObserved && allIndependent) {
+      // All nodes independent, use direct counts
+      nodeCounts = computeDirectCountsForFullyObservedSoftEvidence(network, evidence)
+    } else if (fullyObserved && !allIndependent) {
+      // Fully observed with dependencies
+      // CRITICAL FIX: Use argmax interpretation for correlated soft evidence
+      // to infer the joint distribution from marginals
+      nodeCounts = {}
+
+      // For root nodes: CPT = soft evidence directly
+      for (const nodeId of observedRootNodes) {
+        const nodeEvidence = evidence[nodeId] as Record<string, number>
+        const potentials: ICliquePotentialItem[] = []
+        for (const state in nodeEvidence) {
+          potentials.push({
+            when: { [nodeId]: state },
+            then: nodeEvidence[state],
+          })
+        }
+        nodeCounts[nodeId] = potentials
+      }
+
+      // For descendants: infer joint using maximum correlation assumption
+      // Find the most likely joint state (argmax) and weight by the product of marginals
+      const rawResults = rawInfer(originalNetwork, {})
+
+      for (const nodeId of observedDescendants) {
+        const node = network[nodeId]
+        const nodeFamily = [nodeId, ...node.parents]
+        const familyCliqueId = getCliqueIdContainingNodes(rawResults.cliques, nodeFamily)
+        if (!familyCliqueId) {
+          throw new Error('Implementation error: no clique containing the node family was found')
+        }
+        const rawFamilyCliquePotential = rawResults.cliquesPotentials[familyCliqueId]
+        const familyCliquePotential = getPotentialForFamily(rawFamilyCliquePotential, nodeFamily)
+
+        // Find argmax for each node in family
+        const argmaxStates: Record<string, string> = {}
+        for (const familyNodeId of nodeFamily) {
+          const nodeEvidence = evidence[familyNodeId]
+          if (typeof nodeEvidence !== 'string' && nodeEvidence) {
+            // Find state with maximum probability
+            let maxProb = -1
+            let maxState = ''
+            for (const state in nodeEvidence) {
+              if (nodeEvidence[state] > maxProb) {
+                maxProb = nodeEvidence[state]
+                maxState = state
+              }
+            }
+            argmaxStates[familyNodeId] = maxState
+          }
+        }
+
+        // Weight entries: high weight for argmax combination, low for others
+        const weightedPotential = familyCliquePotential.map(entry => {
+          // Check if this combination matches argmax states
+          let matchScore = 0
+          for (const familyNodeId of nodeFamily) {
+            if (argmaxStates[familyNodeId]) {
+              if (entry.when[familyNodeId] === argmaxStates[familyNodeId]) {
+                matchScore++
+              }
+            }
+          }
+
+          // If all match argmax, use high weight; otherwise use product of marginals
+          let weight = 1.0
+          if (matchScore === Object.keys(argmaxStates).length) {
+            // Argmax combination - use maximum weight
+            for (const familyNodeId of nodeFamily) {
+              const nodeEvidence = evidence[familyNodeId]
+              if (typeof nodeEvidence !== 'string') {
+                const state = entry.when[familyNodeId]
+                weight *= nodeEvidence[state] || 0
+              }
+            }
+            // Boost weight to emphasize correlation
+            weight *= 10.0
+          } else {
+            // Non-argmax combination - use small weight
+            for (const familyNodeId of nodeFamily) {
+              const nodeEvidence = evidence[familyNodeId]
+              if (typeof nodeEvidence !== 'string') {
+                const state = entry.when[familyNodeId]
+                weight *= (nodeEvidence[state] || 0) * 0.1
+              }
+            }
+          }
+
+          return {
+            when: entry.when,
+            then: entry.then * weight,
+          }
+        })
+
+        nodeCounts[nodeId] = weightedPotential
+      }
+    } else {
+      // Has hidden variables - use EM with inference
+      // CRITICAL: Pass ALL evidence to inference for proper hidden variable estimation
+      // But extract direct counts for root nodes instead of using posteriors
+      const rawResults = rawInfer(network, evidence)
+
+      nodeCounts = {}
+
+      // For observed root nodes: extract direct counts from soft evidence
+      // (not from posteriors, to avoid EM feedback loop)
+      for (const nodeId of observedRootNodes) {
+        const nodeEvidence = evidence[nodeId] as Record<string, number>
+        const potentials: ICliquePotentialItem[] = []
+        for (const state in nodeEvidence) {
+          potentials.push({
+            when: { [nodeId]: state },
+            then: nodeEvidence[state],
+          })
+        }
+        nodeCounts[nodeId] = potentials
+      }
+
+      // For other nodes: use posteriors from inference
+      for (const nodeId in network) {
+        if (observedRootNodes.includes(nodeId)) continue
+
+        const node = network[nodeId]
+        const nodeFamily = [nodeId, ...node.parents]
+        const familyCliqueId = getCliqueIdContainingNodes(rawResults.cliques, nodeFamily)
+        if (!familyCliqueId) {
+          throw new Error('Implementation error: no clique containing the node family was found')
+        }
+        const rawFamilyCliquePotential = rawResults.cliquesPotentials[familyCliqueId]
+        const familyCliquePotential = getPotentialForFamily(rawFamilyCliquePotential, nodeFamily)
+
+        nodeCounts[nodeId] = familyCliquePotential
+      }
+    }
+
+    // Accumulate counts
+    for (const nodeId in nodeCounts) {
+      if (expectedCounts[nodeId]) {
+        for (const counted of nodeCounts[nodeId]) {
+          const whenKey = JSON.stringify(counted.when)
+          const existing = expectedCounts[nodeId].find(e => JSON.stringify(e.when) === whenKey)
+          if (existing) {
+            existing.then += counted.then
+          } else {
+            expectedCounts[nodeId].push({ ...counted })
+          }
+        }
+      } else {
+        expectedCounts[nodeId] = nodeCounts[nodeId]
+      }
+    }
   }
+
+  return expectedCounts
+}
+
+export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], stopRatio = 0.07): INetwork {
+  const originalNetwork: INetwork = JSON.parse(JSON.stringify(network)) // Preserve original
+  let newNetwork: INetwork = JSON.parse(JSON.stringify(network))
+  let previousLogLikelihood = -Infinity
+
+  for (let i = 0; i < 20; i++) {
+    const expectedCounts = expectationStep(newNetwork, originalNetwork, given)
+    newNetwork = maximizationStep(newNetwork, expectedCounts)
+    const logLikelihood = computeCompleteDataLogLikelihood(newNetwork, expectedCounts)
+    const logLikelihoodDif = logLikelihood - previousLogLikelihood
+    const ratioChange = Math.abs(logLikelihoodDif / previousLogLikelihood)
+    console.log('Log likelihood: ' + logLikelihood + ' Difference: ' + logLikelihoodDif + ' Ratio change: ' + ratioChange)
+    if (logLikelihoodDif < 0 || ratioChange <= stopRatio) {
+      break
+    }
+    previousLogLikelihood = logLikelihood
+  }
+  console.log('Learning from evidence finished')
   return newNetwork
 }

@@ -21,3 +21,4 @@ export * from './INetworkResult';
 export * from './INodeResult';
 export * from './IInferAllOptions';
 export * from './IEvidence';
+export * from './IRawInfer';
