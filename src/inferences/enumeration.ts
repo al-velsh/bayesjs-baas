@@ -22,7 +22,7 @@ const filterCombinations = (combinations: ICombinations[], nodesToFilter: ICombi
   })
 }
 
-const calculateProbabilities = (network: INetwork, combinations: ICombinations[], softEvidence: Record<string, Record<string, number>>): number => {
+const calculateProbabilities = (network: INetwork, combinations: ICombinations[]): number => {
   const rowsProducts: number[] = []
 
   for (let i = 0; i < combinations.length; i++) {
@@ -58,16 +58,6 @@ const calculateProbabilities = (network: INetwork, combinations: ICombinations[]
       }
     }
 
-    // Multiply by soft evidence (weights are normalized)
-    const softIds = Object.keys(softEvidence)
-    for (const nodeId of softIds) {
-      const weights = softEvidence[nodeId]
-      const state = row[nodeId]
-      if (state !== undefined) {
-        rowProduct *= weights[state] || 0
-      }
-    }
-
     rowsProducts.push(rowProduct)
   }
 
@@ -80,7 +70,7 @@ const calculateProbabilities = (network: INetwork, combinations: ICombinations[]
   return probability
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: IEvidence): number => {
+export const recursiveEnumeration = (network: INetwork, nodes: ICombinations, giving?: ICombinations): number => {
   let combinations: ICombinations[] = combinationsCache.get(network)
 
   if (combinations === undefined) {
@@ -88,13 +78,18 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, giving?: 
     combinationsCache.set(network, combinations)
   }
 
-  const softEvidence = prepareEvidence(network, giving)
+  let filteredCombinations: ICombinations[] = filterCombinations(combinations, nodes)
+  let probGiving = 1
 
-  const filteredForQuery = filterCombinations(combinations, nodes)
-  const probQueryAndSoft = calculateProbabilities(network, filteredForQuery, softEvidence)
-  const probSoft = calculateProbabilities(network, combinations, softEvidence)
+  if (giving) {
+    filteredCombinations = filterCombinations(filteredCombinations, giving)
+    probGiving = recursiveEnumeration(network, giving)
+  }
 
-  if (probSoft === 0) return 0
+  return calculateProbabilities(network, filteredCombinations) / probGiving
+}
 
-  return probQueryAndSoft / probSoft
+export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
+  const giving = prepareEvidence(network, given).hardEvidence
+  return recursiveEnumeration(network, nodes, giving)
 }

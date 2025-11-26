@@ -25,7 +25,8 @@ const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nod
 
 export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
   const splitEvidence = prepareEvidence(network, given)
-  const { cliques, sepSets, junctionTree } = createCliques(network)
+  const softEvidenceNodes = Object.keys(splitEvidence.softEvidence)
+  const { cliques, sepSets, junctionTree } = createCliques(network, softEvidenceNodes)
   const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
 
   return getResult(cliques, cliquesPotentials, nodes)
@@ -33,16 +34,16 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IE
 
 export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
-  const softEvidence = prepareEvidence(network, given)
-  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given, softEvidence)
+  const splitEvidence = prepareEvidence(network, given)
+  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
 
   return { cliques, cliquesPotentials }
 }
 
 export const getPreNormalizedPotentials = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const { cliques, sepSets, junctionTree } = createCliques(network)
-  const softEvidence = prepareEvidence(network, given)
-  const prePropagatedCliquesPotentials = createInitialPotentials(cliques, network, softEvidence || {})
+  const splitEvidence = prepareEvidence(network, given)
+  const prePropagatedCliquesPotentials = createInitialPotentials(cliques, network, splitEvidence.hardEvidence)
   const cliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, prePropagatedCliquesPotentials)
 
   return { cliques, cliquesPotentials }
