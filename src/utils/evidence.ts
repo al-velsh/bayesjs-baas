@@ -1,77 +1,75 @@
 import { IEvidence, INetwork } from '../types'
+import { ISplitEvidence } from '../types/ISplitEvidence'
 
 /**
- * Normalized soft evidence map per node.
- * - Keys: node IDs
- * - Values: a map from state -> normalized weight in [0, 1]
- * - For each node, the weights sum to 1 across all of its states
- */
-export type SoftEvidenceMap = Record<string, Record<string, number>>
-
-/**
- * Prepares the provided evidence by validating and normalizing it into a single soft map.
- *
- * Behavior:
- * - Hard evidence entries (string) are converted to soft evidence with weight 1 for the chosen
- *   state and 0 for other states.
- * - Soft evidence entries (object of state->weight) are validated and normalized:
- *   - Unknown states are ignored; missing states are assigned weight 0
- *   - All weights must be non-negative finite numbers
- *   - Total weight must be > 0; otherwise, an error is thrown
- *   - Weights are normalized to sum to 1 across the node's states
+ * Prepares the provided evidence by splitting, validating and normalizing.
  *
  * @param network The Bayesian network (used to validate node IDs and states)
  * @param given   Hard and/or soft evidence for a subset of nodes
- * @returns       A normalized soft evidence map (nodeId -> state -> weight)
+ * @returns       A split evidence object with hardEvidence and softEvidence
  * @throws Error  If a node ID is unknown, a hard-evidence state is invalid,
  *                or soft-evidence weights are invalid (negative/non-finite) or sum to zero
  */
-export function prepareEvidence (network: INetwork, given?: IEvidence): SoftEvidenceMap {
-  const soft: SoftEvidenceMap = {}
+export function prepareEvidence (network: INetwork, given: IEvidence): ISplitEvidence {
+  const result: ISplitEvidence = {
+    softEvidence: {},
+    hardEvidence: {},
+  }
 
-  if (!given) return soft
-
+  // Split evidence
   for (const nodeId of Object.keys(given)) {
-    const ev = given[nodeId]
+    const evidence = given[nodeId]
+    if (typeof evidence === 'string') {
+      result.hardEvidence[nodeId] = evidence
+    } else {
+      result.softEvidence[nodeId] = evidence
+    }
+  }
+
+  // Validate hardEvidence
+  for (const nodeId of Object.keys(result.hardEvidence)) {
+    const evidence = result.hardEvidence[nodeId]
     const node = network[nodeId]
 
     if (!node) {
       throw new Error(`Evidence refers to unknown node '${nodeId}'.`)
     }
 
-    // Start with zero weights for all states
-    const weights: Record<string, number> = {}
-    for (const state of node.states) {
-      weights[state] = 0
+    if (!node.states.includes(evidence)) {
+      throw new Error(`Hard evidence for '${nodeId}' has unknown state '${evidence}'.`)
     }
-
-    if (typeof ev === 'string') {
-      if (!node.states.includes(ev)) {
-        throw new Error(`Hard evidence for '${nodeId}' has unknown state '${ev}'.`)
-      }
-      weights[ev] = 1
-    } else {
-      let sum = 0
-      for (const state of node.states) {
-        const raw = ev[state]
-        if (raw === undefined) continue
-        if (!Number.isFinite(raw) || raw < 0) {
-          throw new Error(`Soft evidence for '${nodeId}' state '${state}' must be a non-negative finite number.`)
-        }
-        weights[state] = raw
-        sum += raw
-      }
-      if (sum <= 0) {
-        throw new Error(`Soft evidence for '${nodeId}' has zero total weight across states.`)
-      }
-      // Normalize to sum = 1
-      for (const state of node.states) {
-        weights[state] = weights[state] / sum
-      }
-    }
-
-    soft[nodeId] = weights
   }
 
-  return soft
+  // Normalize+Validate softEvidence
+  for (const nodeId of Object.keys(result.softEvidence)) {
+    const evidence = result.softEvidence[nodeId]
+    const node = network[nodeId]
+
+    let totalStateProbability = 0
+    const weights: Record<string, number> = {}
+
+    for (const state of node.states) {
+      const stateEvidence = evidence[state]
+      if (evidence === undefined) {
+        throw new Error(`Soft evidence for '${nodeId}' state '${state}' must be define.`)
+      }
+
+      if (!Number.isFinite(stateEvidence) || stateEvidence < 0) {
+        throw new Error(`Soft evidence for '${nodeId}' state '${state}' must be a non-negative finite number.`)
+      }
+
+      weights[state] = stateEvidence
+      totalStateProbability += stateEvidence
+    }
+
+    if (totalStateProbability <= 0) {
+      throw new Error(`Soft evidence for '${nodeId}' has zero total weight across states.`)
+    }
+
+    for (const state of node.states) {
+      result.softEvidence[nodeId][state] = weights[state] / totalStateProbability
+    }
+  }
+
+  return result
 }

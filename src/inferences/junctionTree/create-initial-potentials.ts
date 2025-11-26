@@ -14,9 +14,8 @@ import {
   buildCombinations,
   getNodesFromNetwork,
   hasNodeIdAndParentsInClique,
-  hasNodeParents,
+  hasNodeParents, objectEqualsByIntersectionKeys,
 } from '../../utils'
-import { SoftEvidenceMap } from '../../utils/evidence'
 
 /** * Return a list of factors that care included in the given clique.   Each factor can
  * be assigned to exactly one clique, and that clique must include all of it's parents.
@@ -89,32 +88,26 @@ const getPotentialValueForNodeIds = (network: INetwork, combination: ICombinatio
   return reduce<number, number>(multiply, 1, nodesPotentialValues)
 }
 
-const getPotentialValue = (combination: ICombinations, network: INetwork, softEvidence: SoftEvidenceMap, factors: string[]) => {
-  let value = getPotentialValueForNodeIds(network, combination, factors)
-
-  for (const nodeId of Object.keys(softEvidence)) {
-    const evidence = softEvidence[nodeId]
-    const state = combination[nodeId]
-    if (state !== undefined) {
-      value *= evidence[state] || 0
-    }
+const getPotentialValue = (combination: ICombinations, network: INetwork, given: ICombinations, factors: string[]) => {
+  if (objectEqualsByIntersectionKeys(given, combination)) {
+    return getPotentialValueForNodeIds(network, combination, factors)
   }
 
-  return value
+  return 0
 }
 
-const createCliquePotential = (clique: IClique, network: INetwork, softEvidence: SoftEvidenceMap, cliqueFactors: ICliqueFactors) => (combination: ICombinations): ICliquePotentialItem => ({
+const createCliquePotential = (clique: IClique, network: INetwork, given: ICombinations, cliqueFactors: ICliqueFactors) => (combination: ICombinations): ICliquePotentialItem => ({
   when: combination,
-  then: getPotentialValue(combination, network, softEvidence, cliqueFactors[clique.id]),
+  then: getPotentialValue(combination, network, given, cliqueFactors[clique.id]),
 })
 
-const createCliquePotentials = (clique: IClique, network: INetwork, softEvidence: SoftEvidenceMap, cliqueFactors: ICliqueFactors) => {
+const createCliquePotentials = (clique: IClique, network: INetwork, given: ICombinations, cliqueFactors: ICliqueFactors) => {
   const combinations = buildCombinations(network, clique.nodeIds)
 
-  return map(createCliquePotential(clique, network, softEvidence, cliqueFactors), combinations)
+  return map(createCliquePotential(clique, network, given, cliqueFactors), combinations)
 }
 
-export default (cliques: IClique[], network: INetwork, given: SoftEvidenceMap): ICliquePotentials => {
+export default (cliques: IClique[], network: INetwork, given: ICombinations): ICliquePotentials => {
   const cliqueFactors = createICliqueFactors(cliques, network)
 
   const cliquePotentials: ICliquePotentials = {}

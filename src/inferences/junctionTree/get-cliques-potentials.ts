@@ -4,14 +4,13 @@ import {
   IGraph,
   INetwork,
   ISepSet,
-  IEvidence,
+  IEvidence, ICombinations,
 } from '../../types'
 import { isNotNil, normalizeCliquePotentials } from '../../utils'
 
 import createInitialPotentials from './create-initial-potentials'
 import { isNil } from 'ramda'
 import propagatePotential from './propagate-potentials'
-import { SoftEvidenceMap } from '../../utils/evidence'
 
 const getCliquesPotentialsWeekMap = new WeakMap<IClique[], ICliquePotentials>()
 const getGivensWeekMap = new WeakMap<IEvidence, boolean>()
@@ -32,11 +31,11 @@ const setCachedValues = (cliques: IClique[], given: IEvidence, result: ICliquePo
   getGivensWeekMap.set(given, true)
 }
 
-export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: IEvidence, softEvidence?: SoftEvidenceMap) => {
+export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations) => {
   const cached = getCachedValues(cliques, given)
 
   if (isNil(cached)) {
-    const cliquesPotentials = createInitialPotentials(cliques, network, softEvidence || {})
+    const cliquesPotentials = createInitialPotentials(cliques, network, given)
     const finalCliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, cliquesPotentials)
     const result = normalizeCliquePotentials(finalCliquesPotentials)
 

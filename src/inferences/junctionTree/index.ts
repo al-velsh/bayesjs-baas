@@ -24,9 +24,9 @@ const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nod
 }
 
 export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
+  const splitEvidence = prepareEvidence(network, given)
   const { cliques, sepSets, junctionTree } = createCliques(network)
-  const softEvidence = prepareEvidence(network, given)
-  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, given, softEvidence)
+  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
 
   return getResult(cliques, cliquesPotentials, nodes)
 }
