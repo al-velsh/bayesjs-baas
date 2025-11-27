@@ -21,9 +21,19 @@ export function prepareEvidence (network: INetwork, given: IEvidence): ISplitEvi
     const evidence = given[nodeId]
     if (typeof evidence === 'string') {
       result.hardEvidence[nodeId] = evidence
-    } else {
-      result.softEvidence[nodeId] = evidence
+      continue
     }
+
+    let hardEvidence: string | undefined
+    for (const state in evidence) {
+      // If a state has a probability very close to 1, it is hard evidence
+      if (evidence[state] >= 0.999) {
+        hardEvidence = state
+        break
+      }
+    }
+    if (hardEvidence) result.hardEvidence[nodeId] = hardEvidence
+    else result.softEvidence[nodeId] = evidence
   }
 
   // Validate hardEvidence
