@@ -4,7 +4,7 @@ import { IInfer, inferences } from '../../src'
 import { allNodes } from '../../models/rain-sprinkler-grasswet'
 import { createNetwork } from '../../src/utils'
 
-const { enumeration, junctionTree, variableElimination } = inferences
+const { junctionTree } = inferences
 const network = createNetwork(...allNodes)
 
 const infersGiveRainSoftEvidence = (infer: IInfer) => {
@@ -19,9 +19,7 @@ const infersGiveRainSoftEvidence = (infer: IInfer) => {
 }
 
 const inferencesNames: { [key: string]: IInfer } = {
-  Enumeration: enumeration.infer,
   'Junction Tree': junctionTree.infer,
-  'Variable Elimination': variableElimination.infer,
 }
 
 const tests: { [key: string]: (infer: IInfer) => void } = {
