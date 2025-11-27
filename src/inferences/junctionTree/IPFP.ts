@@ -30,8 +30,11 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
   // Performance IPFP Steps until convergence
   let iterations = 0
   let maxDifference = 1
+
   while (maxDifference > epsilon && iterations < MAX_ITERATIONS_SAFETY_LIMIT) {
     iterations++
+    const previousCliquePotential: ICliquePotentialItem[] = JSON.parse(JSON.stringify(newCliquePotential))
+
     for (const nodeId in softEvidence) {
       const evidence = softEvidence[nodeId]
       const variableMarginalDistribution = getVariableMarginalDistribution(newCliquePotential, nodeId)
@@ -44,7 +47,7 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
         newCliquePotential[i].then *= factorPerState[variableState]
       }
     }
-    maxDifference = porentialsMaxDifference(bigCliquePotential, newCliquePotential)
+    maxDifference = porentialsMaxDifference(previousCliquePotential, newCliquePotential)
   }
 
   return newCliquePotential
