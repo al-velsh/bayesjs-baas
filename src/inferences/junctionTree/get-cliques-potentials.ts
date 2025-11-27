@@ -31,17 +31,21 @@ const setCachedValues = (cliques: IClique[], given: IEvidence, result: ICliquePo
   getGivensWeekMap.set(given, true)
 }
 
-export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations) => {
+export function JTAPropagation (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations, cliquesPotentials: ICliquePotentials): ICliquePotentials {
+  const finalCliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, cliquesPotentials)
+  const result = normalizeCliquePotentials(finalCliquesPotentials)
+
+  setCachedValues(cliques, given, result)
+
+  return result
+}
+
+export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations): ICliquePotentials => {
   const cached = getCachedValues(cliques, given)
 
   if (isNil(cached)) {
     const cliquesPotentials = createInitialPotentials(cliques, network, given)
-    const finalCliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, cliquesPotentials)
-    const result = normalizeCliquePotentials(finalCliquesPotentials)
-
-    setCachedValues(cliques, given, result)
-
-    return result
+    return JTAPropagation(cliques, network, junctionTree, sepSets, given, cliquesPotentials)
   }
 
   return cached

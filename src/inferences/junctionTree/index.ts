@@ -7,11 +7,12 @@ import {
 } from '../../utils'
 
 import createCliques from './create-cliques'
-import getCliquesPotentials from './get-cliques-potentials'
+import getCliquesPotentials, { JTAPropagation } from './get-cliques-potentials'
 import { sum } from 'ramda'
 import { prepareEvidence } from '../../utils/evidence'
 import createInitialPotentials from './create-initial-potentials'
 import propagatePotential from './propagate-potentials'
+import { IPFP } from './IPFP'
 
 const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nodes: ICombinations) => {
   const cliquesNode = filterCliquesByNodeCombinations(cliques, nodes)
@@ -29,6 +30,24 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IE
   const { cliques, sepSets, junctionTree } = createCliques(network, softEvidenceNodes)
   const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
 
+  if (softEvidenceNodes.length > 0) {
+    let bigCliqueId = ''
+    for (const clique of cliques) {
+      if (softEvidenceNodes.every((nodeId) => clique.nodeIds.includes(nodeId))) {
+        bigCliqueId = clique.id
+        break
+      }
+    }
+    if (bigCliqueId === '') {
+      throw new Error(
+        'Implementation error: Big clique do not exist',
+      )
+    }
+    const bigCliquePotential = cliquesPotentials[bigCliqueId]
+    cliquesPotentials[bigCliqueId] = IPFP(bigCliquePotential, splitEvidence.softEvidence)
+    JTAPropagation(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence, cliquesPotentials)
+  }
+  
   return getResult(cliques, cliquesPotentials, nodes)
 }
 
