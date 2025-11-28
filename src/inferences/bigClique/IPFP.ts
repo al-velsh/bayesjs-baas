@@ -14,6 +14,17 @@ function getVariableMarginalDistribution (cliquePotential: ICliquePotentialItem[
   return marginalDistribution
 }
 
+/**
+ *
+ * IPFP (Iterative Proportional Fitting Procedure) modifies the probability table to satisfy 'Soft Evidence'
+ * It iteratively adjusts the table so that the marginal probabilities match the desired target distributions,
+ * while preserving the original correlations between variables as much as possible .
+ *
+ * @returns {ICliquePotentialItem[]} Returns the big clique potential after applying the soft evidence.
+ * @param bigCliquePotential The big clique in which the soft evidence is applied (Do not modify the original big clique potential, create a copy instead).
+ * @param softEvidence Soft evidence to be inserted on the clique.
+ * @param epsilon The convergence threshold. Default: 0.0001
+ */
 export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: ISoftEvidence, epsilon = 0.0001): ICliquePotentialItem[] {
   const MAX_ITERATIONS_SAFETY_LIMIT = 100
 
