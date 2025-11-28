@@ -2,7 +2,7 @@
 import * as expect from 'expect'
 
 import { allNodes } from '../../models/huge-network'
-import { createNetwork, normalizeCliquePotential } from '../../src/utils'
+import { createNetwork, normalizeCliquePotential, normalizeCliquePotentials } from '../../src/utils'
 import createCliques from '../../src/inferences/junctionTree/create-cliques'
 import {
   collectNetworkEvidence,
@@ -14,7 +14,6 @@ import { ICliquePotentialItem, ICliquePotentialMessages } from '../../src'
 import { rawInfer } from '../../src/inferences/junctionTree'
 import createInitialPotentials from '../../src/inferences/junctionTree/create-initial-potentials'
 import { getConnectedComponents } from '../../src/utils/connected-components'
-import { finishPropagation } from '../../src/inferences/junctionTree/get-cliques-potentials'
 
 /** After message passing between the potentials in the junciton tree, each clique potential for any
  * two adjacent cliques must be consistent.   Specifically, when they are marginalized over the
@@ -35,7 +34,7 @@ const messages: ICliquePotentialMessages = createMessagesByCliques(cliques)
 const ccs: string[][] = getConnectedComponents(junctionTree)
 const collectedPotentials = collectNetworkEvidence(network, junctionTree, sepSets, cliquesPotentials, messages, ccs)
 const distributePotentials = distributeNetworkEvidence(network, junctionTree, sepSets, collectedPotentials, messages, ccs)
-const resultCliquePotentials = finishPropagation(cliques, {}, distributePotentials)
+const resultCliquePotentials = normalizeCliquePotentials(distributePotentials)
 
 // construct the list of pairs in the junction tree by traversal of nodes in depth first
 // topological sorting order rooted on the first clique, returning a list of string pairs

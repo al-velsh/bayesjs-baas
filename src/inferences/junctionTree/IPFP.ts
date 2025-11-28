@@ -1,6 +1,8 @@
 import { ICliquePotentialItem } from '../../types'
 import { ISoftEvidence } from '../../types/ISoftEvidence'
 
+
+
 function getVariableMarginalDistribution (cliquePotential: ICliquePotentialItem[], variable: string): Record<string, number> {
   const marginalDistribution: Record<string, number> = {}
   for (const entry of cliquePotential) {

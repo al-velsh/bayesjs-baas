@@ -12,11 +12,11 @@ import {
   filterCliquePotentialsByNodeCombinations,
   filterCliquesByNodeCombinations,
   getCliqueWithLessNodes,
-  mapPotentialsThen,
+  mapPotentialsThen, normalizeCliquePotentials,
 } from '../../utils'
 
 import createCliques from './create-cliques'
-import { finishPropagation } from './get-cliques-potentials'
+import { getCachedValues, setCachedValues } from './get-cliques-potentials'
 import { sum } from 'ramda'
 import { prepareEvidence } from '../../utils/evidence'
 import createInitialPotentials from './create-initial-potentials'
@@ -42,6 +42,9 @@ export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer =>
   const splitEvidence = prepareEvidence(network, given)
   const softEvidenceNodes = Object.keys(splitEvidence.softEvidence)
   const { cliques, sepSets, junctionTree } = createCliques(network, softEvidenceNodes)
+
+  const cached = getCachedValues(cliques, given)
+  if (cached) return { cliques, cliquesPotentials: cached }
 
   const cliquesPotentials = createInitialPotentials(cliques, network, splitEvidence.hardEvidence)
   const messages: ICliquePotentialMessages = createMessagesByCliques(cliques)
@@ -70,7 +73,9 @@ export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer =>
   }
 
   const distributePotentials = distributeNetworkEvidence(network, junctionTree, sepSets, collectedPotentials, messages, ccs, bigCliqueId)
-  const resultCliquePotentials = finishPropagation(cliques, splitEvidence.hardEvidence, distributePotentials)
+  const resultCliquePotentials = normalizeCliquePotentials(distributePotentials)
+
+  setCachedValues(cliques, given, resultCliquePotentials)
 
   return { cliques, cliquesPotentials: resultCliquePotentials }
 }
