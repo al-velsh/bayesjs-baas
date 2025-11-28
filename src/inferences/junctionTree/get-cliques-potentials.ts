@@ -1,16 +1,9 @@
 import {
   IClique,
   ICliquePotentials,
-  IGraph,
-  INetwork,
-  ISepSet,
   IEvidence, ICombinations,
 } from '../../types'
 import { isNotNil, normalizeCliquePotentials } from '../../utils'
-
-import createInitialPotentials from './create-initial-potentials'
-import { isNil } from 'ramda'
-import propagatePotential from './propagate-potentials'
 
 const getCliquesPotentialsWeekMap = new WeakMap<IClique[], ICliquePotentials>()
 const getGivensWeekMap = new WeakMap<IEvidence, boolean>()
@@ -31,22 +24,9 @@ const setCachedValues = (cliques: IClique[], given: IEvidence, result: ICliquePo
   getGivensWeekMap.set(given, true)
 }
 
-export function JTAPropagation (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations, cliquesPotentials: ICliquePotentials): ICliquePotentials {
-  const finalCliquesPotentials = propagatePotential(network, junctionTree, cliques, sepSets, cliquesPotentials)
+export function finishPropagation (cliques: IClique[], given: ICombinations, finalCliquesPotentials: ICliquePotentials): ICliquePotentials {
   const result = normalizeCliquePotentials(finalCliquesPotentials)
-
-  setCachedValues(cliques, given, result)
+  //setCachedValues(cliques, given, result) TODO:Temp
 
   return result
-}
-
-export default (cliques: IClique[], network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], given: ICombinations): ICliquePotentials => {
-  const cached = getCachedValues(cliques, given)
-
-  if (isNil(cached)) {
-    const cliquesPotentials = createInitialPotentials(cliques, network, given)
-    return JTAPropagation(cliques, network, junctionTree, sepSets, given, cliquesPotentials)
-  }
-
-  return cached
 }

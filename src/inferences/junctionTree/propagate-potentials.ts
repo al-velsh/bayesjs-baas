@@ -27,7 +27,7 @@ import {
   sum,
 } from 'ramda'
 import {
-  buildCombinations,
+  buildCombinations, normalizeCliquePotentials,
   objectEqualsByFirstObjectKeys,
 } from '../../utils'
 import { getConnectedComponents } from '../../utils/connected-components'
@@ -64,7 +64,7 @@ const getSepSetForCliques = (network: INetwork, sepSets: ISepSet[], id: string, 
 const createEmptyCombinations: (combinations: ICombinations[]) => ICliquePotentialItem[] =
   map(x => ({ when: x, then: 0 }))
 
-const createMessagesByCliques: (cliques: IClique[]) => ICliquePotentialMessages = reduce(
+export const createMessagesByCliques: (cliques: IClique[]) => ICliquePotentialMessages = reduce(
   (acc, clique) => assoc(clique.id, new Map(), acc),
   {},
 )
@@ -159,6 +159,22 @@ const collectCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepSets
   process(rootId)
   return cliquesPotentials
 }
+export function collectNetworkEvidence (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], cliquesPotentials: ICliquePotentials, messages: ICliquePotentialMessages, ccs: string[][], rootId?: string): ICliquePotentials {
+  return reduce(
+    (potentials, cliqueConnectedComponent) => {
+      let rootConnectedComponent = rootId
+
+      if (rootConnectedComponent === undefined || !cliqueConnectedComponent.includes(rootConnectedComponent)) {
+        const [firstClique] = cliqueConnectedComponent
+        rootConnectedComponent = firstClique
+      }
+      // Update the potentials starting at the leaf nodes and moving to the roots
+      return collectCliquesEvidence(network, junctionTree, sepSets, messages, potentials, rootConnectedComponent)
+    },
+    cliquesPotentials,
+    ccs,
+  )
+}
 
 const distributeCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], separatorPotentials: ICliquePotentialMessages, cliquesPotentials: ICliquePotentials, rootId: string) => {
   // Determine the traversal order starting from the given node, recursively visiting
@@ -177,6 +193,24 @@ const distributeCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepS
   process(rootId)
   return cliquesPotentials
 }
+
+export function distributeNetworkEvidence (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], cliquesPotentials: ICliquePotentials, messages: ICliquePotentialMessages, ccs: string[][], rootId = ''): ICliquePotentials {
+  return reduce(
+    (potentials, cliqueConnectedComponent) => {
+      let rootConnectedComponent = rootId
+
+      if (!cliqueConnectedComponent.includes(rootId)) {
+        const [firstClique] = cliqueConnectedComponent
+        rootConnectedComponent = firstClique
+      }
+      // Update the potentials starting at the leaf nodes and moving to the roots
+      return distributeCliquesEvidence(network, junctionTree, sepSets, messages, cliquesPotentials, rootConnectedComponent)
+    },
+    cliquesPotentials,
+    ccs,
+  )
+}
+
 
 export default (network: INetwork, junctionTree: IGraph, cliques: IClique[], sepSets: ISepSet[], cliquesPotentials: ICliquePotentials): ICliquePotentials => {
   // Create a store for the messages passed between cliques.   Initially this store is empty because no messages have been passed.

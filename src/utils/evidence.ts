@@ -5,12 +5,14 @@ import { ISplitEvidence } from '../types/ISplitEvidence'
  * Prepares the provided evidence by splitting, validating and normalizing.
  *
  * @param network The Bayesian network (used to validate node IDs and states)
- * @param given   Hard and/or soft evidence for a subset of nodes
+ * @param preGiven   Hard and/or soft evidence for a subset of nodes
  * @returns       A split evidence object with hardEvidence and softEvidence
  * @throws Error  If a node ID is unknown, a hard-evidence state is invalid,
  *                or soft-evidence weights are invalid (negative/non-finite) or sum to zero
  */
-export function prepareEvidence (network: INetwork, given: IEvidence): ISplitEvidence {
+export function prepareEvidence (network: INetwork, preGiven: IEvidence): ISplitEvidence {
+  const given: IEvidence = JSON.parse(JSON.stringify(preGiven))
+
   const result: ISplitEvidence = {
     softEvidence: {},
     hardEvidence: {},
@@ -24,16 +26,7 @@ export function prepareEvidence (network: INetwork, given: IEvidence): ISplitEvi
       continue
     }
 
-    let hardEvidence: string | undefined
-    for (const state in evidence) {
-      // If a state has a probability very close to 1, it is hard evidence
-      if (evidence[state] >= 0.999) {
-        hardEvidence = state
-        break
-      }
-    }
-    if (hardEvidence) result.hardEvidence[nodeId] = hardEvidence
-    else result.softEvidence[nodeId] = evidence
+    result.softEvidence[nodeId] = evidence
   }
 
   // Validate hardEvidence
@@ -77,7 +70,13 @@ export function prepareEvidence (network: INetwork, given: IEvidence): ISplitEvi
     }
 
     for (const state of node.states) {
-      result.softEvidence[nodeId][state] = weights[state] / totalStateProbability
+      const normalizedEvidence = weights[state] / totalStateProbability
+      result.softEvidence[nodeId][state] = normalizedEvidence
+      if (normalizedEvidence >= 0.99) {
+        delete result.softEvidence[nodeId]
+        result.hardEvidence[nodeId] = state
+        break
+      }
     }
   }
 

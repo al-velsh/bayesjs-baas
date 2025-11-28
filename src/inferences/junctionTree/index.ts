@@ -1,4 +1,13 @@
-import { IClique, ICliquePotentials, ICombinations, IEvidence, IInfer, INetwork, IRawInfer } from '../../types'
+import {
+  IClique,
+  ICliquePotentialMessages,
+  ICliquePotentials,
+  ICombinations,
+  IEvidence,
+  IInfer,
+  INetwork,
+  IRawInfer,
+} from '../../types'
 import {
   filterCliquePotentialsByNodeCombinations,
   filterCliquesByNodeCombinations,
@@ -7,12 +16,17 @@ import {
 } from '../../utils'
 
 import createCliques from './create-cliques'
-import getCliquesPotentials, { JTAPropagation } from './get-cliques-potentials'
+import { finishPropagation } from './get-cliques-potentials'
 import { sum } from 'ramda'
 import { prepareEvidence } from '../../utils/evidence'
 import createInitialPotentials from './create-initial-potentials'
-import propagatePotential from './propagate-potentials'
+import propagatePotential, {
+  collectNetworkEvidence,
+  createMessagesByCliques,
+  distributeNetworkEvidence,
+} from './propagate-potentials'
 import { IPFP } from './IPFP'
+import { getConnectedComponents } from '../../utils/connected-components'
 
 const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nodes: ICombinations) => {
   const cliquesNode = filterCliquesByNodeCombinations(cliques, nodes)
@@ -24,39 +38,47 @@ const getResult = (cliques: IClique[], cliquesPotentials: ICliquePotentials, nod
   return sum(thens)
 }
 
-export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
+export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const splitEvidence = prepareEvidence(network, given)
   const softEvidenceNodes = Object.keys(splitEvidence.softEvidence)
   const { cliques, sepSets, junctionTree } = createCliques(network, softEvidenceNodes)
-  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
 
+  const cliquesPotentials = createInitialPotentials(cliques, network, splitEvidence.hardEvidence)
+  const messages: ICliquePotentialMessages = createMessagesByCliques(cliques)
+  const ccs: string[][] = getConnectedComponents(junctionTree)
+
+  let bigCliqueId: string|undefined
   if (softEvidenceNodes.length > 0) {
-    let bigCliqueId = ''
     for (const clique of cliques) {
       if (softEvidenceNodes.every((nodeId) => clique.nodeIds.includes(nodeId))) {
         bigCliqueId = clique.id
         break
       }
     }
-    if (bigCliqueId === '') {
+    if (bigCliqueId === undefined) {
       throw new Error(
         'Implementation error: Big clique do not exist',
       )
     }
-    const bigCliquePotential = cliquesPotentials[bigCliqueId]
-    cliquesPotentials[bigCliqueId] = IPFP(bigCliquePotential, splitEvidence.softEvidence)
-    JTAPropagation(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence, cliquesPotentials)
   }
-  
-  return getResult(cliques, cliquesPotentials, nodes)
+
+  const collectedPotentials = collectNetworkEvidence(network, junctionTree, sepSets, cliquesPotentials, messages, ccs, bigCliqueId)
+
+  if (bigCliqueId !== undefined) {
+    const bigCliquePotential = collectedPotentials[bigCliqueId]
+    collectedPotentials[bigCliqueId] = IPFP(bigCliquePotential, splitEvidence.softEvidence)
+  }
+
+  const distributePotentials = distributeNetworkEvidence(network, junctionTree, sepSets, collectedPotentials, messages, ccs, bigCliqueId)
+  const resultCliquePotentials = finishPropagation(cliques, splitEvidence.hardEvidence, distributePotentials)
+
+  return { cliques, cliquesPotentials: resultCliquePotentials }
 }
 
-export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer => {
-  const { cliques, sepSets, junctionTree } = createCliques(network)
-  const splitEvidence = prepareEvidence(network, given)
-  const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, splitEvidence.hardEvidence)
+export const infer: IInfer = (network: INetwork, nodes: ICombinations, given: IEvidence = {}): number => {
+  const rawInferResult = rawInfer(network, given)
 
-  return { cliques, cliquesPotentials }
+  return getResult(rawInferResult.cliques, rawInferResult.cliquesPotentials, nodes)
 }
 
 export const getPreNormalizedPotentials = (network: INetwork, given: IEvidence = {}): IRawInfer => {
