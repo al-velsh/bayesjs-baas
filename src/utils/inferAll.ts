@@ -5,7 +5,6 @@ import { assoc, clone, identity, ifElse, mergeRight, nthArg, pipe, propEq, reduc
 import { getNodeStates, getNodesFromNetwork } from './network'
 
 import { infer } from '../inferences/junctionTree'
-import { clampNetwork } from './clamp'
 
 const defaultOptions: IInferAllOptions = {
   force: false,

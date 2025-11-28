@@ -149,7 +149,10 @@ export const infer: IInfer = (network: INetwork, nodes: ICombinations = {}, give
     .map(nodeId => buildFactor(network[nodeId], giving))
 
   while (variablesToEliminate.length > 0) {
-    const varToEliminate = variablesToEliminate.shift()!
+    const varToEliminate = variablesToEliminate.shift()
+    if (varToEliminate === undefined) {
+      throw new Error('No variables to eliminate')
+    }
 
     const factorsToJoin = factors.filter(factor => Object.keys(factor[0].states).some(nodeId => nodeId === varToEliminate))
 

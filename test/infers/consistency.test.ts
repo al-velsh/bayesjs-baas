@@ -11,7 +11,6 @@ import {
   marginalizePotentials,
 } from '../../src/inferences/junctionTree/propagate-potentials'
 import { ICliquePotentialItem, ICliquePotentialMessages } from '../../src'
-import { rawInfer } from '../../src/inferences/junctionTree'
 import createInitialPotentials from '../../src/inferences/junctionTree/create-initial-potentials'
 import { getConnectedComponents } from '../../src/utils/connected-components'
 

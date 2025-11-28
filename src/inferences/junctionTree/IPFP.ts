@@ -1,8 +1,6 @@
 import { ICliquePotentialItem } from '../../types'
 import { ISoftEvidence } from '../../types/ISoftEvidence'
 
-
-
 function getVariableMarginalDistribution (cliquePotential: ICliquePotentialItem[], variable: string): Record<string, number> {
   const marginalDistribution: Record<string, number> = {}
   for (const entry of cliquePotential) {
@@ -20,7 +18,7 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
   const MAX_ITERATIONS_SAFETY_LIMIT = 100
 
   const newCliquePotential: ICliquePotentialItem[] = JSON.parse(JSON.stringify(bigCliquePotential))
-  const porentialsMaxDifference = (oldPotential: ICliquePotentialItem[],newPotential: ICliquePotentialItem[]):number => {
+  const porentialsMaxDifference = (oldPotential: ICliquePotentialItem[], newPotential: ICliquePotentialItem[]): number => {
     let maxDiff = 0
     for (let i = 0; i < oldPotential.length; i++) {
       const diff = Math.abs(oldPotential[i].then - newPotential[i].then)

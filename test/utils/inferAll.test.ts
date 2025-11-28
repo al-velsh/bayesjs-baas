@@ -159,7 +159,7 @@ describe('InferAll Utils', () => {
     describe('inferAll with soft evidence', () => {
       it('maps hard evidence to soft {1,0} equivalently (alarm: BURGLARY)', () => {
         const hard = inferAll(alarm, { BURGLARY: 'T' })
-        //console.log(JSON.stringify(hard, null, 2))
+        // console.log(JSON.stringify(hard, null, 2))
         const soft = inferAll(alarm, { BURGLARY: { T: 1, F: 0 } })
         console.log(JSON.stringify(soft, null, 2))
 

@@ -27,7 +27,7 @@ import {
   sum,
 } from 'ramda'
 import {
-  buildCombinations, normalizeCliquePotentials,
+  buildCombinations,
   objectEqualsByFirstObjectKeys,
 } from '../../utils'
 import { getConnectedComponents } from '../../utils/connected-components'
@@ -210,7 +210,6 @@ export function distributeNetworkEvidence (network: INetwork, junctionTree: IGra
     ccs,
   )
 }
-
 
 export default (network: INetwork, junctionTree: IGraph, cliques: IClique[], sepSets: ISepSet[], cliquesPotentials: ICliquePotentials): ICliquePotentials => {
   // Create a store for the messages passed between cliques.   Initially this store is empty because no messages have been passed.
