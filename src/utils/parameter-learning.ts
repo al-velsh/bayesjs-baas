@@ -162,24 +162,28 @@ function expectationStep (network: INetwork, given: IEvidence[] = []): Record<st
       }
     }
   }
-
   return expectedCounts
 }
 
-export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], stopRatio = 0.07): INetwork {
+export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], stopRatio = 0.00001): INetwork {
+  const MAX_ITERATIONS_SAFETY_LIMIT = 100
+
   let newNetwork: INetwork = JSON.parse(JSON.stringify(network))
   let previousLogLikelihood = -Infinity
+  let logLikelihoodDif = Infinity
+  let ratioChange = Infinity
 
-  for (let i = 0; i < 20; i++) {
+  let iterations = 0
+  console.log('Learning from evidence started')
+  while (logLikelihoodDif > 0 && ratioChange >= stopRatio && iterations < MAX_ITERATIONS_SAFETY_LIMIT) {
+    iterations++
+
     const expectedCounts = expectationStep(newNetwork, given)
     newNetwork = maximizationStep(newNetwork, expectedCounts)
     const logLikelihood = computeCompleteDataLogLikelihood(newNetwork, expectedCounts)
-    const logLikelihoodDif = logLikelihood - previousLogLikelihood
-    const ratioChange = Math.abs(logLikelihoodDif / previousLogLikelihood)
+    logLikelihoodDif = logLikelihood - previousLogLikelihood
+    ratioChange = Math.abs(logLikelihoodDif / previousLogLikelihood) || Infinity
     console.log('Log likelihood: ' + logLikelihood + ' Difference: ' + logLikelihoodDif + ' Ratio change: ' + ratioChange)
-    if (logLikelihoodDif < 0 || ratioChange <= stopRatio) {
-      break
-    }
     previousLogLikelihood = logLikelihood
   }
   console.log('Learning from evidence finished')
