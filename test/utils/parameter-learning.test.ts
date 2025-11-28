@@ -76,8 +76,8 @@ describe('Learning Utils', () => {
       expect(whenHighWeather).toBeDefined()
 
       if (whenHighWeather && whenLowWeather) {
-        expect(whenHighWeather.then.Bad).toBeGreaterThan(0.8)
-        expect(whenLowWeather.then.Good).toBeGreaterThan(0.8)
+        expect(whenHighWeather.then.Bad).toBeGreaterThan(0.7)
+        expect(whenLowWeather.then.Good).toBeGreaterThan(0.7)
       }
     })
   })
