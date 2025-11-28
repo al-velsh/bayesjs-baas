@@ -2,37 +2,32 @@ import * as expect from 'expect'
 
 import { createNetwork } from '../../src/utils'
 import { allNodes, completeDataSetParentChild } from '../../models/parent-child-zero-knowledge-cpt'
-import {ICptWithoutParents, ICptWithParents, INetwork} from '../../src'
+import { ICptWithoutParents, ICptWithParents, INetwork } from '../../src'
 import { learningFromEvidence } from '../../src/utils/parameter-learning'
 import { allNodesSprinkler, missingWhetherRainDataSetSprinkler } from '../../models/extended-sprinkler'
-import {node1, simplestEvindence} from "../../models/simplest-model";
-import {evidences, threNodesNetwork} from "../../models/3-nodes-model";
+import { node1, simplestEvindence } from '../../models/simplest-model'
+import { evidences, threNodesNetwork } from '../../models/3-nodes-model'
 
 const microNetwork = createNetwork(...allNodes)
 const sprinklerExtendedNetwork = createNetwork(...allNodesSprinkler)
 const simplestNetwork = createNetwork(node1)
 describe('Learning Utils', () => {
   describe('Simple learning examples', () => {
-
     it('Learning with all evidence been the same should result in a CPT with the same values as evidence', () => {
-
-      let preLearningNetwork = JSON.parse(JSON.stringify(simplestNetwork))
+      const preLearningNetwork = JSON.parse(JSON.stringify(simplestNetwork))
       const newNetwork = learningFromEvidence(preLearningNetwork, simplestEvindence)
-      const newCpt = newNetwork["Node_1"].cpt as ICptWithoutParents
+      const newCpt = newNetwork.Node_1.cpt as ICptWithoutParents
       expect(newCpt.True).toBeCloseTo(0.12, 1)
       expect(newCpt.False).toBeCloseTo(0.88, 1)
     })
 
-
     it('Learning with all evidence been the same should result in a CPT with the same values as evidence, in Bn with hidden nodes', () => {
-      let preLearningNetwork = JSON.parse(JSON.stringify(threNodesNetwork))
+      const preLearningNetwork = JSON.parse(JSON.stringify(threNodesNetwork))
       const newNetwork = learningFromEvidence(preLearningNetwork, evidences)
-      const newCpt = newNetwork["Node_1"].cpt as ICptWithoutParents
+      const newCpt = newNetwork.Node_1.cpt as ICptWithoutParents
       expect(newCpt.T).toBeCloseTo(0.8, 1)
       expect(newCpt.F).toBeCloseTo(0.2, 1)
     })
-
-
 
     it('Learn form a complete dataset', () => {
       let newNetwork: INetwork = JSON.parse(JSON.stringify(microNetwork))

@@ -1,4 +1,5 @@
-import {IEvidence, INode} from "../src";
+/* eslint-disable @typescript-eslint/camelcase */
+import { IEvidence, INode } from '../src'
 
 export const node1: INode = {
   id: 'Node_1',
@@ -7,197 +8,197 @@ export const node1: INode = {
   cpt: { True: 0.50, False: 0.50 },
 }
 
-export const simplestEvindence:IEvidence[] = [
+export const simplestEvindence: IEvidence[] = [
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
+      False: 0.88,
+    },
   },
   {
     Node_1: {
       True: 0.12,
-      False: 0.88
-    }
-  }
+      False: 0.88,
+    },
+  },
 ]
