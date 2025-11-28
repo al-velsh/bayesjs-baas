@@ -52,10 +52,12 @@ export function prepareEvidence (network: INetwork, preGiven: IEvidence): ISplit
     const weights: Record<string, number> = {}
 
     for (const state of node.states) {
-      const stateEvidence = evidence[state]
-      if (evidence === undefined) {
-        throw new Error(`Soft evidence for '${nodeId}' state '${state}' must be define.`)
+      if (evidence[state] === undefined) {
+        console.warn(`Soft evidence for '${nodeId}' state '${state}' should be define, assuming 0 has evidence for the state`)
+        evidence[state] = 0
       }
+
+      const stateEvidence = evidence[state]
 
       if (!Number.isFinite(stateEvidence) || stateEvidence < 0) {
         throw new Error(`Soft evidence for '${nodeId}' state '${state}' must be a non-negative finite number.`)
