@@ -4,7 +4,7 @@ import { IInferAllOptions, IEvidence, INetwork, INetworkResult, INode, INodeResu
 import { assoc, clone, identity, ifElse, mergeRight, nthArg, pipe, propEq, reduce } from 'ramda'
 import { getNodeStates, getNodesFromNetwork } from './network'
 
-import { infer } from '../inferences/junctionTree'
+import { infer } from '../inferences/bigClique'
 
 const defaultOptions: IInferAllOptions = {
   force: false,

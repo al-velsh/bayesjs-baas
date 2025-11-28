@@ -2,7 +2,7 @@ import { INode } from '../../src'
 import { createCliques as buildCliques } from '../../src/utils/create-cliques'
 import { createNetwork } from '../../src/utils'
 import { createGraphBuilder } from '../../src/graphs'
-import createJTreeCliques from '../../src/inferences/junctionTree/create-cliques'
+import createJTreeCliques from '../../src/inferences/bigClique/create-cliques'
 import { allNodes as hugeNetworkAllNodes } from '../../models/huge-network'
 const hugeNetwork = createNetwork(...hugeNetworkAllNodes)
 
