@@ -1,6 +1,5 @@
 import { rawInfer } from '../inferences/junctionTree'
 import {
-  IClique,
   ICliquePotentialItem,
   ICptWithoutParents,
   ICptWithParents,
@@ -8,14 +7,15 @@ import {
   INetwork,
 } from '../types'
 
-function getCliqueIdContainingNodes (cliques: IClique[], nodes: string[]): string | undefined {
-  for (const clique of cliques) {
-    if (nodes.every(node => clique.nodeIds.includes(node))) return clique.id
-  }
-  return undefined
-}
-
-function getPotentialForFamily (potential: ICliquePotentialItem[], family: string[]): ICliquePotentialItem[] {
+/**
+ *
+ * Given a clique potentials and a node family, returns clique potentials that contain only the nodes in the family.
+ *
+ * @param potential - The clique potentials to be filtered
+ * @param family - The node family to filter the potentials by
+ * @returns A new clique potentials array containing only the nodes in the family
+ */
+export function getPotentialForFamily (potential: ICliquePotentialItem[], family: string[]): ICliquePotentialItem[] {
   const newPotentialsMap: Map<string, number> = new Map()
 
   // Marginalize
@@ -50,7 +50,7 @@ function getPotentialForFamily (potential: ICliquePotentialItem[], family: strin
  * @param originalExpectedCounts - A map of counts of how much times a given configuration has been seen, for each node in the network.
  * @returns A new network with the updated parameters, after the maximization step.
  */
-function maximizationStep (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>): INetwork {
+export function maximizationStep (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>): INetwork {
   const newNetwork: INetwork = JSON.parse(JSON.stringify(network))
   const expectedCounts: Record<string, ICliquePotentialItem[]> = JSON.parse(JSON.stringify(originalExpectedCounts))
 
@@ -118,7 +118,7 @@ function maximizationStep (network: INetwork, originalExpectedCounts: Record<str
  * @param originalExpectedCounts - A map of counts of how much times a given configuration has been seen, for each node in the network.
  * @returns A number representing the log likelihood of the network, compare with the evidence scenarios already process as counts.
  */
-function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>) {
+export function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>) {
   let logLikelihood = 0
 
   for (const nodeId in network) {
@@ -156,8 +156,11 @@ function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCo
  * @param given - Array of evidence instances for training
  * @returns A map of counts of how much time a given configuration has been seen, for each node in the network.
  */
-function expectationStep (network: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
-  const newGiven = JSON.parse(JSON.stringify(given))
+export function expectationStep (network: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
+  const newGiven: IEvidence[] = JSON.parse(JSON.stringify(given))
+  if (newGiven.length === 0) {
+    newGiven.push({})
+  }
 
   const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
 
@@ -167,7 +170,12 @@ function expectationStep (network: INetwork, given: IEvidence[] = []): Record<st
     for (const nodeId in network) {
       const node = network[nodeId]
       const nodeFamily = [nodeId, ...node.parents]
-      const familyCliqueId = getCliqueIdContainingNodes(rawResults.cliques, nodeFamily)
+      // Family clique is the clique containing all the nodes in the node family
+      const familyCliqueId = ((): string | undefined => {
+        for (const clique of rawResults.cliques) {
+          if (nodeFamily.every(node => clique.nodeIds.includes(node))) return clique.id
+        }
+      })()
       if (!familyCliqueId) {
         throw new Error('Implementation error: no clique containing the node family was found')
       }
