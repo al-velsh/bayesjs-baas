@@ -3,30 +3,30 @@ import { IEvidence, INode } from '../src/types'
 import { createNetwork } from '../src/utils'
 
 export const Node1: INode = {
-  id: 'Node_1',
+  id: 'node1',
   states: ['T', 'F'],
   parents: [],
   cpt: { T: 0.5, F: 0.5 },
 }
 
 export const Node2: INode = {
-  id: 'Node_2',
+  id: 'node2',
   states: ['T', 'F'],
-  parents: ['Node_1'],
+  parents: ['node1'],
   cpt: [
 
-    { when: { Node_1: 'T' }, then: { T: 0.5, F: 0.5 } },
-    { when: { Node_1: 'F' }, then: { T: 0.5, F: 0.5 } },
+    { when: { node1: 'T' }, then: { T: 0.5, F: 0.5 } },
+    { when: { node1: 'F' }, then: { T: 0.5, F: 0.5 } },
   ],
 }
 
 export const Node3: INode = {
-  id: 'Node_3',
+  id: 'node3',
   states: ['T', 'F'],
-  parents: ['Node_2'],
+  parents: ['node2'],
   cpt: [
-    { when: { Node_2: 'T' }, then: { T: 0.5, F: 0.5 } },
-    { when: { Node_2: 'F' }, then: { T: 0.5, F: 0.5 } },
+    { when: { node2: 'T' }, then: { T: 0.5, F: 0.5 } },
+    { when: { node2: 'F' }, then: { T: 0.5, F: 0.5 } },
   ],
 }
 
@@ -35,11 +35,11 @@ export const threNodesNetwork = createNetwork(...allNodes)
 
 export const evidences: IEvidence[] = [
   {
-    Node_1: {
+    node1: {
       T: 0.8,
       F: 0.2,
     },
-    Node_3: {
+    node3: {
       T: 0.3,
       F: 0.7,
     },
