@@ -1,3 +1,3 @@
-import { IClique, ICliquePotentials, INetwork } from '../../types';
-declare const _default: (cliques: IClique[], network: INetwork, given: Record<string, Record<string, number>>) => ICliquePotentials;
+import { IClique, ICliquePotentials, ICombinations, INetwork } from '../../types';
+declare const _default: (cliques: IClique[], network: INetwork, given: ICombinations) => ICliquePotentials;
 export default _default;

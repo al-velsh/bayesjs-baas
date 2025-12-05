@@ -4,5 +4,5 @@ interface ICreateCliquesResult {
     sepSets: ISepSet[];
     junctionTree: IGraph;
 }
-declare const _default: (network: INetwork) => ICreateCliquesResult;
+declare const _default: (network: INetwork, bigCliqueNodes?: string[] | undefined) => ICreateCliquesResult;
 export default _default;
