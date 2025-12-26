@@ -4,7 +4,7 @@ import { allNodes } from '../../models/alarm'
 import { clone } from 'ramda'
 import { createNetwork } from '../../src/utils'
 import { allNodes as hugeNetworkAllNodes } from '../../models/huge-network'
-import { inferAll } from '../../src'
+import { IEvidence, inferAll, INode } from '../../src'
 import { allNodes as sprinklerNodes } from '../../models/rain-sprinkler-grasswet'
 
 const alarm = createNetwork(...allNodes)
@@ -237,6 +237,25 @@ describe('InferAll Utils', () => {
             node39: { T: 0.99, F: 0.01 },
           })
         })
+      })
+    })
+
+    describe('A node with a impossible evidence should return its CPT', () => {
+      const basicNode: INode = {
+        id: 'basic',
+        states: ['High', 'Low'],
+        parents: [],
+        cpt: { High: 1, Low: 0 },
+      }
+
+      const evidence: IEvidence = {
+        basic: {
+          High: 0.5,
+          Low: 0.5,
+        },
+      }
+      expect(inferAll(createNetwork(basicNode), evidence, { precision: 2 })).toEqual({
+        basic: basicNode.cpt,
       })
     })
   })
