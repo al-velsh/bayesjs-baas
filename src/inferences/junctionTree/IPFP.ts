@@ -18,7 +18,7 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
   const MAX_ITERATIONS_SAFETY_LIMIT = 100
 
   const newCliquePotential: ICliquePotentialItem[] = JSON.parse(JSON.stringify(bigCliquePotential))
-  const porentialsMaxDifference = (oldPotential: ICliquePotentialItem[], newPotential: ICliquePotentialItem[]): number => {
+  const potentialsMaxDifference = (oldPotential: ICliquePotentialItem[], newPotential: ICliquePotentialItem[]): number => {
     let maxDiff = 0
     for (let i = 0; i < oldPotential.length; i++) {
       const diff = Math.abs(oldPotential[i].then - newPotential[i].then)
@@ -40,14 +40,14 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
       const variableMarginalDistribution = getVariableMarginalDistribution(newCliquePotential, nodeId)
       const factorPerState: Record<string, number> = {}
       for (const state in evidence) {
-        factorPerState[state] = evidence[state] / variableMarginalDistribution[state]
+        factorPerState[state] = (evidence[state] / variableMarginalDistribution[state])
       }
       for (let i = 0; i < newCliquePotential.length; i++) {
         const variableState = newCliquePotential[i].when[nodeId]
         newCliquePotential[i].then *= factorPerState[variableState]
       }
     }
-    maxDifference = porentialsMaxDifference(previousCliquePotential, newCliquePotential)
+    maxDifference = potentialsMaxDifference(previousCliquePotential, newCliquePotential)
   }
 
   return newCliquePotential
