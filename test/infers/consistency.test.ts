@@ -3,15 +3,15 @@ import * as expect from 'expect'
 
 import { allNodes } from '../../models/huge-network'
 import { createNetwork, normalizeCliquePotential, normalizeCliquePotentials } from '../../src/utils'
-import createCliques from '../../src/inferences/junctionTree/create-cliques'
+import createCliques from '../../src/inferences/bigClique/create-cliques'
 import {
   collectNetworkEvidence,
   createMessagesByCliques, distributeNetworkEvidence,
   findSepSetWithCliques,
   marginalizePotentials,
-} from '../../src/inferences/junctionTree/propagate-potentials'
+} from '../../src/inferences/bigClique/propagate-potentials'
 import { ICliquePotentialItem, ICliquePotentialMessages } from '../../src'
-import createInitialPotentials from '../../src/inferences/junctionTree/create-initial-potentials'
+import createInitialPotentials from '../../src/inferences/bigClique/create-initial-potentials'
 import { getConnectedComponents } from '../../src/utils/connected-components'
 
 /** After message passing between the potentials in the junciton tree, each clique potential for any

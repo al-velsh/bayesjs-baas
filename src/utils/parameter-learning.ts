@@ -1,4 +1,4 @@
-import { rawInfer } from '../inferences/junctionTree'
+import { rawInfer } from '../inferences/bigClique'
 import {
   ICliquePotentialItem,
   ICptWithoutParents,
