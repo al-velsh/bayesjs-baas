@@ -30,17 +30,6 @@ import {
   buildCombinations,
   objectEqualsByFirstObjectKeys,
 } from '../../utils'
-import { getConnectedComponents } from '../../utils/connected-components'
-
-interface ICollectEvidenceOrder {
-  id: string;
-  parentId: string;
-}
-
-interface IDistributeEvidenceOrder {
-  id: string;
-  neighborId: string;
-}
 
 const hasSepSetCliques: (cliqueIdA: string, cliqueIdB: string) => (sepSet: ISepSet) => boolean =
 curry((cliqueIdA: string, cliqueIdB: string, sepSet: ISepSet) =>
@@ -64,7 +53,7 @@ const getSepSetForCliques = (network: INetwork, sepSets: ISepSet[], id: string, 
 const createEmptyCombinations: (combinations: ICombinations[]) => ICliquePotentialItem[] =
   map(x => ({ when: x, then: 0 }))
 
-const createMessagesByCliques: (cliques: IClique[]) => ICliquePotentialMessages = reduce(
+export const createMessagesByCliques: (cliques: IClique[]) => ICliquePotentialMessages = reduce(
   (acc, clique) => assoc(clique.id, new Map(), acc),
   {},
 )
@@ -160,6 +149,36 @@ const collectCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepSets
   return cliquesPotentials
 }
 
+/**
+ *
+ * Update the potentials in the JT from the leaves to the root.
+ *
+ * @returns {ICliquePotentials} The updated clique potentials.
+ * @param network Network to perform inference.
+ * @param junctionTree The junction tree of the network.
+ * @param sepSets The list of separation sets.
+ * @param cliquesPotentials The initial clique potentials.
+ * @param messages The messages between the cliques.
+ * @param ccs The connected components of the junction tree.
+ * @param rootId The root node of the junction tree or first node of the connected component if not provided.
+ */
+export function collectNetworkEvidence (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], cliquesPotentials: ICliquePotentials, messages: ICliquePotentialMessages, ccs: string[][], rootId?: string): ICliquePotentials {
+  return reduce(
+    (potentials, cliqueConnectedComponent) => {
+      let rootConnectedComponent = rootId
+
+      if (rootConnectedComponent === undefined || !cliqueConnectedComponent.includes(rootConnectedComponent)) {
+        const [firstClique] = cliqueConnectedComponent
+        rootConnectedComponent = firstClique
+      }
+      // Update the potentials starting at the leaf nodes and moving to the roots
+      return collectCliquesEvidence(network, junctionTree, sepSets, messages, potentials, rootConnectedComponent)
+    },
+    cliquesPotentials,
+    ccs,
+  )
+}
+
 const distributeCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], separatorPotentials: ICliquePotentialMessages, cliquesPotentials: ICliquePotentials, rootId: string) => {
   // Determine the traversal order starting from the given node, recursively visiting
   // the neighbors of the given node.
@@ -178,20 +197,31 @@ const distributeCliquesEvidence = (network: INetwork, junctionTree: IGraph, sepS
   return cliquesPotentials
 }
 
-export default (network: INetwork, junctionTree: IGraph, cliques: IClique[], sepSets: ISepSet[], cliquesPotentials: ICliquePotentials): ICliquePotentials => {
-  // Create a store for the messages passed between cliques.   Initially this store is empty because no messages have been passed.
-  const messages: ICliquePotentialMessages = createMessagesByCliques(cliques)
-  const ccs: string[][] = getConnectedComponents(junctionTree)
-
-  // Make each connected component of the factor graph consistent.    This is not strictly necessary for a well formed Bayes net
-  // which should have single connected component, however during incremental construction or structural learning, networks which
-  // are forests, rather than trees may occur.
+/**
+ *
+ * Update the potentials in the JT from the root to the leaves.
+ * You usually want to call this function after calling `collectNetworkEvidence` to distribute the evidence from the root to the leaves.
+ *
+ * @returns {ICliquePotentials} The updated clique potentials.
+ * @param network Network to perform inference.
+ * @param junctionTree The junction tree of the network.
+ * @param sepSets The list of separation sets.
+ * @param cliquesPotentials The clique potentials usually from `collectNetworkEvidence`.
+ * @param messages The messages between the cliques.
+ * @param ccs The connected components of the junction tree.
+ * @param rootId The root node of the junction tree or first node of the connected component if not provided.
+ */
+export function distributeNetworkEvidence (network: INetwork, junctionTree: IGraph, sepSets: ISepSet[], cliquesPotentials: ICliquePotentials, messages: ICliquePotentialMessages, ccs: string[][], rootId = ''): ICliquePotentials {
   return reduce(
-    (potentials, [rootId]) => {
+    (potentials, cliqueConnectedComponent) => {
+      let rootConnectedComponent = rootId
+
+      if (!cliqueConnectedComponent.includes(rootId)) {
+        const [firstClique] = cliqueConnectedComponent
+        rootConnectedComponent = firstClique
+      }
       // Update the potentials starting at the leaf nodes and moving to the roots
-      const collectedCliquesPotentials = collectCliquesEvidence(network, junctionTree, sepSets, messages, potentials, rootId)
-      // Update the potentials starting at the root node and moving toward the leaves
-      return distributeCliquesEvidence(network, junctionTree, sepSets, messages, collectedCliquesPotentials, rootId)
+      return distributeCliquesEvidence(network, junctionTree, sepSets, messages, cliquesPotentials, rootConnectedComponent)
     },
     cliquesPotentials,
     ccs,

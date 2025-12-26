@@ -2,11 +2,17 @@
 import * as expect from 'expect'
 
 import { allNodes } from '../../models/huge-network'
-import { createNetwork, normalizeCliquePotential } from '../../src/utils'
-import createCliques from '../../src/inferences/junctionTree/create-cliques'
-import getCliquesPotentials from '../../src/inferences/junctionTree/get-cliques-potentials'
-import { findSepSetWithCliques, marginalizePotentials } from '../../src/inferences/junctionTree/propagate-potentials'
-import { ICliquePotentialItem } from '../../src'
+import { createNetwork, normalizeCliquePotential, normalizeCliquePotentials } from '../../src/utils'
+import createCliques from '../../src/inferences/bigClique/create-cliques'
+import {
+  collectNetworkEvidence,
+  createMessagesByCliques, distributeNetworkEvidence,
+  findSepSetWithCliques,
+  marginalizePotentials,
+} from '../../src/inferences/bigClique/propagate-potentials'
+import { ICliquePotentialItem, ICliquePotentialMessages } from '../../src'
+import createInitialPotentials from '../../src/inferences/bigClique/create-initial-potentials'
+import { getConnectedComponents } from '../../src/utils/connected-components'
 
 /** After message passing between the potentials in the junciton tree, each clique potential for any
  * two adjacent cliques must be consistent.   Specifically, when they are marginalized over the
@@ -22,7 +28,12 @@ import { ICliquePotentialItem } from '../../src'
 const network = createNetwork(...allNodes)
 const { cliques, sepSets, junctionTree } = createCliques(network)
 
-const cliquesPotentials = getCliquesPotentials(cliques, network, junctionTree, sepSets, {})
+const cliquesPotentials = createInitialPotentials(cliques, network, {})
+const messages: ICliquePotentialMessages = createMessagesByCliques(cliques)
+const ccs: string[][] = getConnectedComponents(junctionTree)
+const collectedPotentials = collectNetworkEvidence(network, junctionTree, sepSets, cliquesPotentials, messages, ccs)
+const distributePotentials = distributeNetworkEvidence(network, junctionTree, sepSets, collectedPotentials, messages, ccs)
+const resultCliquePotentials = normalizeCliquePotentials(distributePotentials)
 
 // construct the list of pairs in the junction tree by traversal of nodes in depth first
 // topological sorting order rooted on the first clique, returning a list of string pairs
@@ -48,8 +59,8 @@ const tests = pairs.map(pair =>
     name: `cliques ${pair.src} and ${pair.trg}`,
     fn: () => {
       // look up the clique potentials for the two adjacent cliques and get their separation set.
-      const srcPotential: ICliquePotentialItem[] = cliquesPotentials[pair.src]
-      const trgPotential: ICliquePotentialItem[] = cliquesPotentials[pair.trg]
+      const srcPotential: ICliquePotentialItem[] = resultCliquePotentials[pair.src]
+      const trgPotential: ICliquePotentialItem[] = resultCliquePotentials[pair.trg]
       const mSepSet = findSepSetWithCliques(pair.src, pair.trg, sepSets)
 
       // if their separation set does not exist then exit

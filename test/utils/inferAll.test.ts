@@ -126,13 +126,13 @@ describe('InferAll Utils', () => {
 
     describe('inferAll with clampSoftEvidence', () => {
       it('clamps hard evidence as {1,0} (alarm: BURGLARY)', () => {
-        const res = inferAll(alarm, { BURGLARY: 'T' }, { clampSoftEvidence: true })
+        const res = inferAll(alarm, { BURGLARY: 'T' })
         expect(res.BURGLARY.T).toBe(1)
         expect(res.BURGLARY.F).toBe(0)
       })
 
       it('clamps soft evidence exactly on the evidenced node (sprinkler: RAIN)', () => {
-        const res = inferAll(sprinkler, { RAIN: { T: 0.3, F: 0.7 } }, { clampSoftEvidence: true })
+        const res = inferAll(sprinkler, { RAIN: { T: 0.3, F: 0.7 } })
         expect(Number(res.RAIN.T.toFixed(6))).toBe(0.3)
         expect(Number(res.RAIN.F.toFixed(6))).toBe(0.7)
         // still a proper distribution on other nodes
@@ -141,14 +141,14 @@ describe('InferAll Utils', () => {
 
       it('clamped-hard equals standard hard evidence results for downstream nodes (alarm)', () => {
         const hard = inferAll(alarm, { BURGLARY: 'T' })
-        const clamped = inferAll(alarm, { BURGLARY: 'T' }, { clampSoftEvidence: true })
+        const clamped = inferAll(alarm, { BURGLARY: 'T' })
         // compare some downstream nodes
         expect(Number(hard.ALARM.T.toFixed(6))).toBe(Number(clamped.ALARM.T.toFixed(6)))
         expect(Number(hard.JOHN_CALLS.T.toFixed(6))).toBe(Number(clamped.JOHN_CALLS.T.toFixed(6)))
       })
 
       it('mix of clamped soft and hard applies: (sprinkler: RAIN soft, SPRINKLER hard)', () => {
-        const res = inferAll(sprinkler, { RAIN: { T: 0.6, F: 0.4 }, SPRINKLER: 'F' }, { clampSoftEvidence: true })
+        const res = inferAll(sprinkler, { RAIN: { T: 0.6, F: 0.4 }, SPRINKLER: 'F' })
         expect(Number(res.RAIN.T.toFixed(6))).toBe(0.6)
         expect(Number(res.RAIN.F.toFixed(6))).toBe(0.4)
         expect(res.SPRINKLER.T).toBe(0)
@@ -159,7 +159,9 @@ describe('InferAll Utils', () => {
     describe('inferAll with soft evidence', () => {
       it('maps hard evidence to soft {1,0} equivalently (alarm: BURGLARY)', () => {
         const hard = inferAll(alarm, { BURGLARY: 'T' })
+        // console.log(JSON.stringify(hard, null, 2))
         const soft = inferAll(alarm, { BURGLARY: { T: 1, F: 0 } })
+        console.log(JSON.stringify(soft, null, 2))
 
         // Compare a few nodes robustly
         expect(Number(hard.ALARM.T.toFixed(6))).toBe(Number(soft.ALARM.T.toFixed(6)))
@@ -174,6 +176,8 @@ describe('InferAll Utils', () => {
 
         const min = Math.min(lo, hi)
         const max = Math.max(lo, hi)
+
+        console.log(`ALARM: ${mixed} (${min}, ${max})`)
 
         expect(mixed >= min && mixed <= max).toBe(true)
       })

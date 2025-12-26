@@ -1,4 +1,4 @@
-import { getPreNormalizedPotentials, rawInfer } from '../inferences/junctionTree'
+import { getPreNormalizedPotentials, rawInfer } from '../inferences/bigClique'
 import {
   IClique,
   ICliquePotentialItem,
