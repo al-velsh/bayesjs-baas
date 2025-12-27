@@ -73,8 +73,8 @@ function getBigCliqueId (cliques: IClique[], softEvidenceNodes: string[]): strin
  */
 export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer => {
   const splitEvidence = prepareEvidence(network, given)
-  const softEvidenceNodes = Object.keys(splitEvidence.softEvidence)
-  const { cliques, sepSets, junctionTree } = createCliques(network, softEvidenceNodes)
+  const bigCliqueNodes = Object.keys(splitEvidence.softEvidence)
+  const { cliques, sepSets, junctionTree } = createCliques(network, bigCliqueNodes)
 
   const cached = getCachedValues(cliques, given)
   if (cached) return { cliques, cliquesPotentials: cached }
@@ -84,8 +84,8 @@ export const rawInfer = (network: INetwork, given: IEvidence = {}): IRawInfer =>
   const ccs: string[][] = getConnectedComponents(junctionTree)
 
   let bigCliqueId: string|undefined
-  if (softEvidenceNodes.length > 0) {
-    bigCliqueId = getBigCliqueId(cliques, softEvidenceNodes)
+  if (bigCliqueNodes.length > 0) {
+    bigCliqueId = getBigCliqueId(cliques, bigCliqueNodes)
     if (bigCliqueId === undefined) {
       throw new Error(
         'Implementation error: Big clique do not exist',

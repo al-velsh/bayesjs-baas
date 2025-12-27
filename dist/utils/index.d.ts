@@ -3,3 +3,4 @@ export * from './combinations';
 export * from './fp';
 export * from './cliques';
 export * from './create-sepsets';
+export { learningFromEvidence } from './parameter-learning';

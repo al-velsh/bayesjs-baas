@@ -69,7 +69,11 @@ export function IPFP (bigCliquePotential: ICliquePotentialItem[], softEvidence: 
       const variableMarginalDistribution = getVariableMarginalDistribution(newCliquePotential, nodeId)
       const factorPerState: Record<string, number> = {}
       for (const state in evidence) {
-        factorPerState[state] = evidence[state] / variableMarginalDistribution[state]
+        factorPerState[state] = (evidence[state] / variableMarginalDistribution[state])
+        if (factorPerState[state] === Infinity) {
+          console.warn('The provided evidence for node ' + nodeId + ' is imposible.')
+          factorPerState[state] = 0
+        }
       }
       for (let i = 0; i < newCliquePotential.length; i++) {
         const variableState = newCliquePotential[i].when[nodeId]

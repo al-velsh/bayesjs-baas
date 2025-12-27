@@ -1,6 +1,5 @@
-import { getPreNormalizedPotentials, rawInfer } from '../inferences/bigClique'
+import { rawInfer } from '../inferences/bigClique'
 import {
-  IClique,
   ICliquePotentialItem,
   ICptWithoutParents,
   ICptWithParents,
@@ -8,20 +7,19 @@ import {
   INetwork,
 } from '../types'
 
-function getCliqueIdContainingNodes (cliques: IClique[], nodes: string[]): string | undefined {
-  for (const clique of cliques) {
-    if (nodes.every(node => clique.nodeIds.includes(node))) return clique.id
-  }
-  return undefined
-}
-
-function getPotentialForFamily (potential: ICliquePotentialItem[], family: string[]): ICliquePotentialItem[] {
+/**
+ *
+ * Given a clique potentials and a node family, returns clique potentials that contain only the nodes in the family.
+ *
+ * @param potential - The clique potentials to be filtered
+ * @param family - The node family to filter the potentials by
+ * @returns A new clique potentials array containing only the nodes in the family
+ */
+export function getPotentialForFamily (potential: ICliquePotentialItem[], family: string[]): ICliquePotentialItem[] {
   const newPotentialsMap: Map<string, number> = new Map()
 
   // Marginalize
-  let totalValue = 0
   for (const entry of potential) {
-    totalValue += entry.then
     const newWhen: Record<string, string> = {}
     for (const [inode, istate] of Object.entries(entry.when)) {
       if (family.includes(inode)) {
@@ -29,67 +27,32 @@ function getPotentialForFamily (potential: ICliquePotentialItem[], family: strin
       }
     }
 
-    const entryValue = newPotentialsMap.get(JSON.stringify(newWhen))
-    if (entryValue) {
-      newPotentialsMap.set(JSON.stringify(newWhen), entryValue + entry.then)
-    } else {
-      newPotentialsMap.set(JSON.stringify(newWhen), entry.then)
-    }
+    const entryValue = newPotentialsMap.get(JSON.stringify(newWhen)) || 0
+    newPotentialsMap.set(JSON.stringify(newWhen), entryValue + entry.then)
   }
 
-  // Normalize
   const newPotentials: ICliquePotentialItem[] = []
   for (const [key, value] of newPotentialsMap) {
     newPotentials.push({
       when: JSON.parse(key),
-      then: value / totalValue,
+      then: value,
     })
   }
   return newPotentials
 }
 
 /**
- * Performs one epoch of the Expectation Maximization (EM) algorithm for learning from evidence.
- * This function implements both the expectation step (calculating expected counts) and the
- * maximization step (updating network parameters).
+ *
+ * Performs the maximization step of the EM algorithm, that is equivalent to the maximization likelihood algorithm.
+ * This step is used to update the parameters of the nodes in the network, using the counts provided by the expectation step.
+ *
  * @param network - The Bayesian network to update
- * @param given - Array of evidence instances to learn from
- * @returns Updated network with new parameters learned from the evidence
+ * @param originalExpectedCounts - A map of counts of how much times a given configuration has been seen, for each node in the network.
+ * @returns A new network with the updated parameters, after the maximization step.
  */
-
-export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[] = []): INetwork {
-  if (given.length === 0) {
-    return network
-  }
-
-  // Expectation Step
-  const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
-
-  for (const evidence of given) {
-    const rawResults = rawInfer(network, evidence)
-
-    for (const nodeId in network) {
-      const node = network[nodeId]
-      const nodeFamily = [nodeId, ...node.parents]
-      const familyCliqueId = getCliqueIdContainingNodes(rawResults.cliques, nodeFamily)
-      if (!familyCliqueId) {
-        throw new Error('Implementation error: no clique containing the node family was found')
-      }
-      const rawFamilyCliquePotential = rawResults.cliquesPotentials[familyCliqueId]
-      const familyCliquePotential = getPotentialForFamily(rawFamilyCliquePotential, nodeFamily)
-      if (expectedCounts[nodeId]) {
-        for (let i = 0; i < expectedCounts[nodeId].length; i++) {
-          expectedCounts[nodeId][i].then += familyCliquePotential[i].then
-        }
-      } else {
-        expectedCounts[nodeId] = familyCliquePotential
-      }
-    }
-  }
-
-  // Maximization Step
-
+export function maximizationStep (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>): INetwork {
   const newNetwork: INetwork = JSON.parse(JSON.stringify(network))
+  const expectedCounts: Record<string, ICliquePotentialItem[]> = JSON.parse(JSON.stringify(originalExpectedCounts))
 
   for (const nodeId in newNetwork) {
     const node = newNetwork[nodeId]
@@ -120,13 +83,13 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
       const nodeState = entry.when[nodeId]
       delete entry.when[nodeId]
       const findIndex = newCpt.findIndex(x => Object.keys(x.when).every(key => entry.when[key] === x.when[key]))
-      if (findIndex === -1) {
+      if (findIndex !== -1) {
+        newCpt[findIndex].then[nodeState] = entry.then
+      } else {
         newCpt.push({
           when: entry.when,
           then: { [nodeState]: entry.then },
         })
-      } else {
-        newCpt[findIndex].then[nodeState] = entry.then
       }
     }
 
@@ -146,32 +109,88 @@ export function learningFromEvidenceEpoch (network: INetwork, given: IEvidence[]
   return newNetwork
 }
 
-function getEvidenceProbability (network: INetwork, given: IEvidence[]) {
-  let resValue = 0
+/**
+ *
+ * Returns the log likelihood of the network, compare with the evidence scenarios already process as counts.
+ * This metric is used to evaluate how close is the current network to the evidence scenarios, which is usually a negative number,.
+ *
+ * @param network - The Bayesian network to analyze the log likelihood of
+ * @param originalExpectedCounts - A map of counts of how much times a given configuration has been seen, for each node in the network.
+ * @returns A number representing the log likelihood of the network, compare with the evidence scenarios already process as counts.
+ */
+export function computeCompleteDataLogLikelihood (network: INetwork, originalExpectedCounts: Record<string, ICliquePotentialItem[]>) {
+  let logLikelihood = 0
 
-  for (const evidence of given) {
-    const potential = getPreNormalizedPotentials(network, evidence).cliquesPotentials['0']
+  for (const nodeId in network) {
+    const node = network[nodeId]
+    const potentials = originalExpectedCounts[nodeId]
+    for (const potential of potentials) {
+      const countContext = potential.when
+      let cptProbabilityOfContext = 0
+      if (node.parents.length === 0) {
+        const cpt = node.cpt as ICptWithoutParents
+        cptProbabilityOfContext = cpt[countContext[nodeId]]
+      } else {
+        const cpt = node.cpt as ICptWithParents
+        const entryOfContext = cpt.find(x => Object.keys(x.when).every(key => countContext[key] === x.when[key]))
+        if (entryOfContext) {
+          cptProbabilityOfContext = entryOfContext.then[countContext[nodeId]]
+        } else {
+          throw Error('Implementation error: no entry of context was found')
+        }
+      }
 
-    for (const entry of potential) {
-      resValue += entry.then
+      logLikelihood += potential.then * Math.log(cptProbabilityOfContext)
     }
   }
 
-  resValue /= given.length
-
-  return resValue
+  return logLikelihood
 }
 
-// This function is not used in the project right now, as need to be fixed, but is going to be used in the future
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function loglikelihood (network: INetwork, given: IEvidence[]) {
-  let resValue = 0
-  for (const evidence of given) {
-    const probability = getEvidenceProbability(network, [evidence])
-    resValue += Math.log(probability)
+/**
+ * Performs the expectation step of the EM algorithm.
+ * This step is used to compute the marginal probabilities of the nodes in the network,
+ * for each given evidence, given as a result a count of how much time a configuration has been seen.
+ *
+ * @param network - The Bayesian network to be performance the expectation
+ * @param given - Array of evidence instances for training
+ * @returns A map of counts of how much time a given configuration has been seen, for each node in the network.
+ */
+export function expectationStep (network: INetwork, given: IEvidence[] = []): Record<string, ICliquePotentialItem[]> {
+  const newGiven: IEvidence[] = JSON.parse(JSON.stringify(given))
+  if (newGiven.length === 0) {
+    newGiven.push({})
   }
 
-  return resValue
+  const expectedCounts: Record<string, ICliquePotentialItem[]> = {}
+
+  for (const evidence of newGiven) {
+    const rawResults = rawInfer(network, evidence)
+
+    for (const nodeId in network) {
+      const node = network[nodeId]
+      const nodeFamily = [nodeId, ...node.parents]
+      // Family clique is the clique containing all the nodes in the node family
+      const familyCliqueId = ((): string | undefined => {
+        for (const clique of rawResults.cliques) {
+          if (nodeFamily.every(node => clique.nodeIds.includes(node))) return clique.id
+        }
+      })()
+      if (!familyCliqueId) {
+        throw new Error('Implementation error: no clique containing the node family was found')
+      }
+      const rawFamilyCliquePotential = rawResults.cliquesPotentials[familyCliqueId]
+      const familyCliquePotential = getPotentialForFamily(rawFamilyCliquePotential, nodeFamily)
+      if (expectedCounts[nodeId]) {
+        for (let i = 0; i < expectedCounts[nodeId].length; i++) {
+          expectedCounts[nodeId][i].then += familyCliquePotential[i].then
+        }
+      } else {
+        expectedCounts[nodeId] = familyCliquePotential
+      }
+    }
+  }
+  return expectedCounts
 }
 
 /**
@@ -179,33 +198,30 @@ function loglikelihood (network: INetwork, given: IEvidence[]) {
  *
  * @param network - The initial Bayesian network to be trained
  * @param given - Array of evidence instances for training
- * @param nEpochs - Number of training epochs to perform (default: 50)
- * @param dataPercentageEpoch - Percentage of available data to use per epoch (default: 0.5)
- * @param validationDataPercentage - Percentage of available data to use for validation exclusive (default: 0)
+ * @param stopRatio - The ratio of difference between the log likelihood of the current network and the previous one to stop the training
  * @returns Updated network after training with the specified parameters
  */
+export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], stopRatio = 0.00001): INetwork {
+  const MAX_ITERATIONS_SAFETY_LIMIT = 100
 
-// This function is not finished, that is why contains some unused variables and comments
-export function learningFromEvidence (network: INetwork, given: IEvidence[] = [], nEpochs = 50, dataPercentageEpoch = 0.75, validationDataPercentage = 0): INetwork {
-  let newNetwork = JSON.parse(JSON.stringify(network))
+  let newNetwork: INetwork = JSON.parse(JSON.stringify(network))
+  let previousLogLikelihood = -Infinity
+  let logLikelihoodDif = Infinity
+  let ratioChange = Infinity
 
-  const nDataEpoch = Math.floor(given.length * dataPercentageEpoch)
-  const nValidation = Math.floor(given.length * validationDataPercentage)
+  let iterations = 0
+  console.log('Learning from evidence started')
+  while (logLikelihoodDif > 0 && ratioChange >= stopRatio && iterations < MAX_ITERATIONS_SAFETY_LIMIT) {
+    iterations++
 
-  const randomGiven = given.sort(() => Math.random() - 0.5)
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const validationData = randomGiven.slice(0, nValidation)
-  const trainingData = randomGiven.slice(nValidation)
-
-  for (let iteration = 0; iteration < nEpochs; iteration++) {
-    const randomIndices = Array.from({ length: trainingData.length }, (_, i) => i)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, nDataEpoch)
-    const combinations = randomIndices.map(index => ({ ...trainingData[index] }))
-    newNetwork = learningFromEvidenceEpoch(newNetwork, combinations)
-    // console.log(`Epoch ${iteration + 1} - Evidence Probability: ${getEvidenceProbability(newNetwork, validationData)}`)
-    // console.log(`Epoch ${iteration + 1} - Loglikelihood: ${loglikelihood(newNetwork, validationData)}`)
+    const expectedCounts = expectationStep(newNetwork, given)
+    newNetwork = maximizationStep(newNetwork, expectedCounts)
+    const logLikelihood = computeCompleteDataLogLikelihood(newNetwork, expectedCounts)
+    logLikelihoodDif = logLikelihood - previousLogLikelihood
+    ratioChange = Math.abs(logLikelihoodDif / previousLogLikelihood) || Infinity
+    console.log('Log likelihood: ' + logLikelihood + ' Difference: ' + logLikelihoodDif + ' Ratio change: ' + ratioChange)
+    previousLogLikelihood = logLikelihood
   }
+  console.log('Learning from evidence finished')
   return newNetwork
 }

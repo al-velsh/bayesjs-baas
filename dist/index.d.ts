@@ -8,3 +8,4 @@ export * from './builder';
 export declare const infer: import("./types").IInfer;
 export * from './types';
 export * from './utils/inferAll';
+export * from './utils/parameter-learning';
